@@ -54,6 +54,7 @@ export default class GameClient {
 				render.p5 = p5
 				render.gameplay = gameplay
 				gameplay.render = render
+
 			}
 
 			p5.draw = () => {
@@ -76,8 +77,7 @@ export default class GameClient {
 				if (this.touchCountdown > 0) return
 				else this.touchCountdown = 10
 
-				//// click here
-				console.log(124)
+				render.click()
 			}
 		}
 
