@@ -2,7 +2,8 @@ import type P5 from "p5"
 import GameClient from "./main"
 import Gameplay from "./Gameplay"
 
-type PositionType = [number, number]
+export type PositionType = [number, number]
+type SquareID = [number, number, number] // [face, x, y]
 
 export default class Render {
   gc: GameClient
@@ -30,26 +31,31 @@ export default class Render {
 
     const { SL, GC } = this.CONSTS
     const GV = this.GRID_VERTICES
+    const { PI, cos, sin } = Math
 
     // >>> COMPUTE GRID_VERTICES.verts
     // each cube face
     for (let i = 0; i < 3; i++) {
-      const deg = Math.PI / 180 * (i * 120 - 150)
-      const deg2 = deg + Math.PI / 180 * 120
+      const deg = PI / 180 * (i * 120 - 150)
+      const deg2 = deg + PI / 180 * 120
+      const cosDeg = cos(deg)
+      const sinDeg = sin(deg)
+      const cosDeg2 = cos(deg2)
+      const sinDeg2 = sin(deg2)
 
       // each (vertical) row (1,2,3 => index + 1)
       for (let r = 1; r < 4; r++) {
         // starts with first vertex...
         const rowVerts: PositionType[] = [
-          [Math.cos(deg) * SL * r + GC.x, Math.sin(deg) * SL * r + GC.y]
+          [cosDeg * SL * r + GC.x, sinDeg * SL * r + GC.y]
         ]
 
         // ...then add 3 more (horizontal)
         for (let rr = 1; rr < 4; rr++) {
           const lastRV = rowVerts[rowVerts.length - 1]
           rowVerts.push([
-            lastRV[0] + Math.cos(deg2) * SL,
-            lastRV[1] + Math.sin(deg2) * SL
+            lastRV[0] + cosDeg2 * SL,
+            lastRV[1] + sinDeg2 * SL
           ])
         }
 
@@ -91,7 +97,88 @@ export default class Render {
 
   }
 
+  isPointInParallelogram(P: PositionType, [A, B, C, D]: PositionType[]): boolean {
+    const ABx = B[0] - A[0];
+    const ABy = B[1] - A[1];
+    const ADx = D[0] - A[0];
+    const ADy = D[1] - A[1];
+    const APx = P[0] - A[0];
+    const APy = P[1] - A[1];
 
+    const denom = ABx * ADy - ABy * ADx;
+    if (denom === 0) return false;
+
+    // Cross-product numerators
+    const u_num = APx * ADy - APy * ADx;
+    const v_num = ABx * APy - ABy * APx;
+
+    // Compare without dividing by denom
+    if (denom > 0) {
+      return (
+        u_num >= 0 && u_num <= denom &&
+        v_num >= 0 && v_num <= denom
+      );
+    } else {
+      return (
+        u_num <= 0 && u_num >= denom &&
+        v_num <= 0 && v_num >= denom
+      );
+    }
+  }
+
+  getHoveredSquare(): SquareID | null {
+    const { p5 } = this
+    const { verts } = this.GRID_VERTICES
+    const mousePos: PositionType = [this.gc.mx, this.gc.my]
+    let faceIndex: number | null = null;
+
+    // top face
+    if (this.isPointInParallelogram(mousePos, [verts[0], verts[9], verts[12], verts[21]])) {
+      faceIndex = 0
+    } else if (this.isPointInParallelogram(mousePos, [verts[0], verts[21], verts[24], verts[33]])) {
+      faceIndex = 1
+    } else if (this.isPointInParallelogram(mousePos, [verts[0], verts[33], verts[36], verts[9]])) {
+      faceIndex = 2
+    }
+
+    if (typeof faceIndex === "number") {
+      const rows = this.GRID_VERTICES.faces[faceIndex]
+      for (let r = 0; r < rows.length; r++) {
+        const sqs = rows[r]
+        for (let rr = 0; rr < sqs.length; rr++) {
+          if (this.isPointInParallelogram([this.gc.mx, this.gc.my], sqs[rr])) {
+            return [faceIndex, r, rr]
+          }
+        }
+      }
+    }
+
+    return null
+  }
+
+  renderGrid() {
+    const { p5 } = this
+    const { verts } = this.GRID_VERTICES
+    p5.stroke(100)
+    p5.strokeWeight(5)
+
+    for (let f = 0; f < 3; f++) {
+      const nextFaceIndex = f === 2 ? 0 : f + 1
+      // vertical lines
+      for (let x = 0; x < 4; x++) {
+        const v1 = x === 0 ? verts[0] : verts[nextFaceIndex * 12 + (x - 1) * 4 + 1]
+        const v2 = verts[f * 12 + x + 8 + 1]
+        p5.line(v1[0], v1[1], v2[0], v2[1])
+      }
+
+      // horizontal lines
+      for (let y = 0; y < 3; y++) {
+        const v1 = verts[f * 12 + y * 4 + 1]
+        const v2 = verts[f * 12 + y * 4 + 4]
+        p5.line(v1[0], v1[1], v2[0], v2[1])
+      }
+    }
+  }
 
   draw() {
     const gp = this.gameplay
@@ -99,52 +186,40 @@ export default class Render {
 
     p5.background(20);
 
-
-
-    // render outline ////
-    p5.noFill();
-    p5.stroke(100);
-    p5.strokeWeight(5);
-
-    p5.beginShape();
-    for (let i = 0; i < 6; i++) {
-      const deg = i * 60 - 150
-      p5.vertex(p5.cos(deg) * 180 + 200, p5.sin(deg) * 180 + 300);
-    }
-    p5.endShape(p5.CLOSE);
-
-    // render all vertices ///
-    p5.stroke(200)
-    p5.strokeWeight(10)
-    const allVerts = this.GRID_VERTICES.verts
-    for (let i = 0; i < allVerts.length; i++) {
-      const vert = allVerts[i]
-      p5.point(vert[0], vert[1])
-    }
-
-    // render square vertices
-    p5.fill(255, 100)
-    p5.noStroke()
-    let cc = 0
-    for (let i = 0; i < this.GRID_VERTICES.faces.length; i++) {
-      const rows = this.GRID_VERTICES.faces[i]
-      for (let r = 0; r < rows.length; r++) {
-        const sqs = rows[r]
-        for (let rr = 0; rr < sqs.length; rr++) {
-          const sqVerts = sqs[rr]
-          cc++
-          if (p5.frameCount * 0.2 % 30 < cc) continue
-          p5.beginShape();
-          for (let sv = 0; sv < sqVerts.length; sv++) {
-            p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
-          }
-          p5.endShape(p5.CLOSE);
-
-        }
+    // render hovered square ///
+    const hoveredSquare = this.getHoveredSquare()
+    if (hoveredSquare) {
+      const sqVerts = this.GRID_VERTICES.faces[hoveredSquare[0]][hoveredSquare[1]][hoveredSquare[2]]
+      p5.fill(0)
+      p5.noStroke()
+      p5.beginShape();
+      for (let sv = 0; sv < sqVerts.length; sv++) {
+        p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
       }
+      p5.endShape(p5.CLOSE);
     }
 
-    console.log(cc)
+    this.renderGrid()
+
+    // loop all squares
+    // p5.noStroke()
+    // for (let i = 0; i < this.GRID_VERTICES.faces.length; i++) {
+    //   const rows = this.GRID_VERTICES.faces[i]
+    //   for (let r = 0; r < rows.length; r++) {
+    //     const sqs = rows[r]
+    //     for (let rr = 0; rr < sqs.length; rr++) {
+    //       const sqVerts = sqs[rr]
+
+    //       p5.fill(0)
+    //       p5.beginShape();
+    //       for (let sv = 0; sv < sqVerts.length; sv++) {
+    //         p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
+    //       }
+    //       p5.endShape(p5.CLOSE);
+
+    //     }
+    //   }
+    // }
   }
 
   click() {
