@@ -1,9 +1,9 @@
 import type P5 from "p5"
 import GameClient from "./main"
-import Gameplay from "./Gameplay"
+import Gameplay, { sqDirs } from "./Gameplay"
 
 export type PositionType = [number, number]
-type SquareID = [number, number, number] // [face, x, y]
+export type SquareID = [number, number, number] // [face, x, y]
 
 export default class Render {
   gc: GameClient
@@ -19,7 +19,6 @@ export default class Render {
     verts: PositionType[],
     faces: PositionType[][][][] // 3 faces each has 3x3 squares each has 4 vertices 
   }
-
 
   constructor(gameClient: GameClient) {
     this.gc = gameClient
@@ -127,7 +126,6 @@ export default class Render {
   }
 
   getHoveredSquare(): SquareID | null {
-    const { p5 } = this
     const { verts } = this.GRID_VERTICES
     const mousePos: PositionType = [this.gc.mx, this.gc.my]
     let faceIndex: number | null = null;
@@ -160,7 +158,7 @@ export default class Render {
     const { p5 } = this
     const { verts } = this.GRID_VERTICES
     p5.stroke(100)
-    p5.strokeWeight(5)
+    p5.strokeWeight(2)
 
     for (let f = 0; f < 3; f++) {
       const nextFaceIndex = f === 2 ? 0 : f + 1
@@ -180,34 +178,148 @@ export default class Render {
     }
   }
 
+  getSteppedSqID(sd: sqDirs, id: SquareID): SquareID | null {
+    id = id.slice() as SquareID
+
+    for (let i = 0; i < sd.length; i++) {
+      switch (sd[i]) {
+        case "U":
+          if (id[2] === 2) return null
+          id[2]++
+          break
+        case "R":
+          if (id[1] === 2) return null
+          id[1]++
+          break
+        case "D":
+          // going to previous face?
+          if (id[2] === 0) {
+            id = [id[0] === 0 ? 2 : id[0] - 1, 0, id[1]]
+            // apply rotation to sd
+            sd = sd.map(d => this.gameplay.getRotatedDir(d, false))
+          } else {
+            id[2]--
+          }
+          break
+        case "L":
+          // going to next face?
+          if (id[1] === 0) {
+            id = [id[0] === 2 ? 0 : id[0] + 1, id[2], 0]
+            // apply rotation to sd
+            sd = sd.map(d => this.gameplay.getRotatedDir(d, true))
+          } else {
+            id[1]--
+          }
+          break
+      }
+    }
+
+    return id
+  }
+
   draw() {
     const gp = this.gameplay
     const p5 = this.p5
 
-    p5.background(20);
+    p5.background(50);
 
-    // render hovered square ///
-    const hoveredSquare = this.getHoveredSquare()
-    if (hoveredSquare) {
-      const sqVerts = this.GRID_VERTICES.faces[hoveredSquare[0]][hoveredSquare[1]][hoveredSquare[2]]
-      p5.fill(0)
-      p5.noStroke()
-      p5.beginShape();
-      for (let sv = 0; sv < sqVerts.length; sv++) {
-        p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
+
+    const { currentPiece } = gp
+    // holding a piece?
+    if (currentPiece) {
+
+      const hoveredSquare = this.getHoveredSquare()
+      if (hoveredSquare) {
+        currentPiece.hoveredSq = hoveredSquare
+
+        // rotate piece if changed face
+        const { lastHoveredFaceIndex } = gp
+        if (lastHoveredFaceIndex !== hoveredSquare[0]) {
+          // clockwise if going to previous face
+          const goingPreviousFace = (lastHoveredFaceIndex === 0 && hoveredSquare[0] === 2) ||
+            (lastHoveredFaceIndex === 1 && hoveredSquare[0] === 0) ||
+            (lastHoveredFaceIndex === 2 && hoveredSquare[0] === 1)
+          gp.rotatePiece(!goingPreviousFace)
+          gp.lastHoveredFaceIndex = hoveredSquare[0] as 0 | 1 | 2
+        }
+
       }
-      p5.endShape(p5.CLOSE);
+      else {
+        // is NOT hovering on ROTATE button? then change to null
+        /////
+
+        currentPiece.hoveredSq = null
+      }
+
+      // render piece preview
+      if (currentPiece.hoveredSq) {
+        const calculatedSqs: { id: SquareID, isHeavy: boolean, isOutOfBound?: boolean }[] = [
+          // including center square
+          { id: currentPiece.hoveredSq, isHeavy: currentPiece.op.heavySqIndex === "CENTER" }
+        ]
+
+        // all other squares beside center square
+        for (let i = 0; i < currentPiece.sqList.length; i++) {
+          const id = this.getSteppedSqID(currentPiece.sqList[i], currentPiece.hoveredSq)
+          if (id === null) {
+            calculatedSqs.push({ id: currentPiece.hoveredSq, isHeavy: false, isOutOfBound: true })
+          }
+          else {
+            calculatedSqs.push({ id, isHeavy: currentPiece.op.heavySqIndex === i })
+          }
+        }
+
+        ////// level 3: also apply heavy to each non-heavy if next to existing heavy
+
+        ///// check if overlapped with existing squares OR out of bound => set possible or not
+
+
+
+        ///////// quick render test
+        for (let i = 0; i < calculatedSqs.length; i++) {
+          const { id, isHeavy, isOutOfBound } = calculatedSqs[i]
+          if (isOutOfBound) continue
+
+          const sqVerts = this.GRID_VERTICES.faces[id[0]][id[1]][id[2]]
+          p5.fill("yellow")
+          p5.noStroke()
+          p5.beginShape();
+          for (let sv = 0; sv < sqVerts.length; sv++) {
+            p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
+          }
+          p5.endShape(p5.CLOSE);
+        }
+      }
+
+
+      //// render inventory, use indexOf() sqList from RAW_PIECES to identify piece type
+
+
+      // const sqVerts = this.GRID_VERTICES
+      //   .faces[hoveredSquare[0]][hoveredSquare[1]][hoveredSquare[2]]
+      // p5.fill("yellow")
+      // p5.noStroke()
+      // p5.beginShape();
+      // for (let sv = 0; sv < sqVerts.length; sv++) {
+      //   p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
+      // }
+      // p5.endShape(p5.CLOSE);
+
+
+
     }
 
     this.renderGrid()
 
+
+
     // loop all squares
     // p5.noStroke()
-    // for (let i = 0; i < this.GRID_VERTICES.faces.length; i++) {
+    // for (let i = 0; i < 3; i++) {
     //   const rows = this.GRID_VERTICES.faces[i]
-    //   for (let r = 0; r < rows.length; r++) {
+    //   for (let r = 0; r < 3; r++) {
     //     const sqs = rows[r]
-    //     for (let rr = 0; rr < sqs.length; rr++) {
+    //     for (let rr = 0; rr < 3; rr++) {
     //       const sqVerts = sqs[rr]
 
     //       p5.fill(0)
@@ -226,5 +338,11 @@ export default class Render {
     const p5 = this.p5
     const gp = this.gameplay
 
+  }
+
+  keyPressed() {
+    if (this.p5.keyCode === 82) {
+      this.gameplay.rotatePiece(false)
+    }
   }
 }

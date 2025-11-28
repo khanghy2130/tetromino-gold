@@ -2,6 +2,11 @@ import _p5_ from "p5"
 import Render from "./Render"
 import Gameplay from "./Gameplay"
 
+
+export function getRandomItem<T>(arr: T[]): T {
+	return arr[Math.floor(Math.random() * arr.length)];
+}
+
 export default class GameClient {
 	// rescaled mouse position (0 to 400 width)
 	mx: number
@@ -78,6 +83,10 @@ export default class GameClient {
 				else this.touchCountdown = 10
 
 				render.click()
+			}
+
+			p5.keyPressed = () => {
+				render.keyPressed()
 			}
 		}
 
