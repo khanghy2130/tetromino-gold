@@ -1,7 +1,7 @@
 import GameClient, { getRandomItem } from "./main"
 import Render, { PositionType, SquareID } from "./Render"
 
-type SquareData = 0 | 1 | 2
+export type SquareData = 0 | 1 | 2 // none | normal | heavy
 
 type OriginalPiece = {
   sqList: sqDirs[]
@@ -54,6 +54,8 @@ export default class Gameplay {
   lastHoveredFaceIndex: 0 | 1 | 2 = 1 // second face is default
 
 
+
+
   constructor(gameClient: GameClient) {
     this.gc = gameClient
 
@@ -99,7 +101,8 @@ export default class Gameplay {
     }
 
     this.lastHoveredFaceIndex = 1 // reset
-    this.rotatePiece(false) // rotate counter clockwise to fit default face
+    this.rotatePiece(false) // rotate to fit default face
+    this.rotatePiece(false)
 
     // exit if passed certain turn number (no more piece needed)
     ////
@@ -133,5 +136,23 @@ export default class Gameplay {
     )
   }
 
+  placePiece() {
+    const { hoveredSquare, calculatedSqs } = this.render.input
+    if (hoveredSquare === null) return
+
+    // exit if not possible
+    if (calculatedSqs.some(sq => sq.isOverlapped || sq.isOutOfBound)) { return }
+
+    //// test immediate placement
+    for (let i = 0; i < calculatedSqs.length; i++) {
+      const sq = calculatedSqs[i];
+      this.boardData[sq.id[0]][sq.id[1]][sq.id[2]] = sq.isHeavy ? 2 : 1
+    }
+    this.shiftPiecesInventory()
+
+
+    // reset
+    this.render.input.hoveredSquare = null
+  }
 
 }

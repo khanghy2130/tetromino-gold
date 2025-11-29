@@ -1,6 +1,6 @@
 import type P5 from "p5"
 import GameClient from "./main"
-import Gameplay, { sqDirs } from "./Gameplay"
+import Gameplay, { sqDirs, SquareData } from "./Gameplay"
 
 export type PositionType = [number, number]
 export type SquareID = [number, number, number] // [face, x, y]
@@ -19,6 +19,16 @@ export default class Render {
     verts: PositionType[],
     faces: PositionType[][][][] // 3 faces each has 3x3 squares each has 4 vertices 
   }
+
+  touchscreenOn: boolean = false
+
+  input: {
+    hoveredSquare: SquareID | null
+    calculatedSqs: {
+      id: SquareID, isHeavy: boolean,
+      isOutOfBound?: boolean, isOverlapped?: boolean
+    }[]
+  } = { hoveredSquare: null, calculatedSqs: [] }
 
   constructor(gameClient: GameClient) {
     this.gc = gameClient
@@ -217,18 +227,93 @@ export default class Render {
     return id
   }
 
+  renderButtons() {
+    const { p5 } = this
+
+    // temp setup
+    p5.fill(100)
+    p5.noStroke()
+
+    // top left button
+    p5.push()
+    p5.translate(105, 135)
+    p5.rotate(-30)
+    p5.rect(0, 0, 150, 35, 10)
+    p5.pop()
+
+    // top right button
+    p5.push()
+    p5.translate(295, 135)
+    p5.rotate(30)
+    p5.rect(0, 0, 150, 35, 10)
+    p5.pop()
+
+    // bottom left button
+    p5.push()
+    p5.translate(105, 465)
+    p5.rotate(30)
+    p5.rect(0, 0, 150, 35, 10)
+    p5.pop()
+
+    // bottom right button
+    p5.push()
+    p5.translate(295, 465)
+    p5.rotate(-30)
+    p5.rect(0, 0, 150, 35, 10)
+    p5.pop()
+
+  }
+
+  renderExistingSquares() {
+    const { boardData } = this.gameplay
+    const { p5 } = this
+
+    p5.noStroke()
+    for (let i = 0; i < 3; i++) {
+      const rows = this.GRID_VERTICES.faces[i]
+      for (let r = 0; r < 3; r++) {
+        const sqs = rows[r]
+        for (let rr = 0; rr < 3; rr++) {
+          const sqVerts = sqs[rr]
+
+          const sqData: SquareData = boardData[i][r][rr]
+          if (sqData === 0) { continue }
+          if (sqData === 1) {
+            p5.fill(130)
+          } else {
+            p5.fill(180)
+          }
+
+          p5.beginShape();
+          for (let sv = 0; sv < sqVerts.length; sv++) {
+            p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
+          }
+          p5.endShape(p5.CLOSE);
+
+        }
+      }
+    }
+
+  }
+
   draw() {
     const gp = this.gameplay
     const p5 = this.p5
 
     p5.background(50);
 
+    this.renderButtons()
+
+    this.renderGrid()
+
+    this.renderExistingSquares()
 
     const { currentPiece } = gp
     // holding a piece?
     if (currentPiece) {
 
       const hoveredSquare = this.getHoveredSquare()
+      this.input.hoveredSquare = hoveredSquare // for click action
       if (hoveredSquare) {
         currentPiece.hoveredSq = hoveredSquare
 
@@ -245,7 +330,7 @@ export default class Render {
 
       }
       else {
-        // is NOT hovering on ROTATE button? then change to null
+        // is NOT hovering on ROTATE/PLACE button? then change to null
         /////
 
         currentPiece.hoveredSq = null
@@ -253,7 +338,7 @@ export default class Render {
 
       // render piece preview
       if (currentPiece.hoveredSq) {
-        const calculatedSqs: { id: SquareID, isHeavy: boolean, isOutOfBound?: boolean }[] = [
+        const calculatedSqs: this["input"]["calculatedSqs"] = [
           // including center square
           { id: currentPiece.hoveredSq, isHeavy: currentPiece.op.heavySqIndex === "CENTER" }
         ]
@@ -269,9 +354,8 @@ export default class Render {
           }
         }
 
-        ////// level 3: also apply heavy to each non-heavy if next to existing heavy
-
-        ///// check if overlapped with existing squares OR out of bound => set possible or not
+        ////// level 3: also set isHeavy to each non-heavy if next to existing heavy
+        ///// check if overlapped (also set sq.isOverlapped) OR out of bound => set color
 
 
 
@@ -289,6 +373,9 @@ export default class Render {
           }
           p5.endShape(p5.CLOSE);
         }
+
+        // for click action
+        this.input.calculatedSqs = calculatedSqs
       }
 
 
@@ -309,35 +396,24 @@ export default class Render {
 
     }
 
-    this.renderGrid()
 
-
-
-    // loop all squares
-    // p5.noStroke()
-    // for (let i = 0; i < 3; i++) {
-    //   const rows = this.GRID_VERTICES.faces[i]
-    //   for (let r = 0; r < 3; r++) {
-    //     const sqs = rows[r]
-    //     for (let rr = 0; rr < 3; rr++) {
-    //       const sqVerts = sqs[rr]
-
-    //       p5.fill(0)
-    //       p5.beginShape();
-    //       for (let sv = 0; sv < sqVerts.length; sv++) {
-    //         p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
-    //       }
-    //       p5.endShape(p5.CLOSE);
-
-    //     }
-    //   }
-    // }
   }
 
   click() {
     const p5 = this.p5
     const gp = this.gameplay
 
+    // touchscreen mode
+    if (this.touchscreenOn) {
+
+    }
+    // desktop mode
+    else {
+      /// place piece if hovering on a square
+      if (this.input.hoveredSquare) {
+        gp.placePiece()
+      }
+    }
   }
 
   keyPressed() {
@@ -346,3 +422,26 @@ export default class Render {
     }
   }
 }
+
+
+/*
+const COS_30 = Math.sqrt(3) / 2; 
+const SIN_30 = 0.5;
+function pointInRotRect(
+  mx: number,
+  my: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  deg: 30 | -30
+): boolean {
+  const dx = mx - x;
+  const dy = my - y;
+  const sin = deg === 30 ? -SIN_30 : SIN_30;
+  const cos = COS_30;
+  const rx = dx * cos - dy * sin;
+  const ry = dx * sin + dy * cos;
+  return Math.abs(rx) <= w * 0.5 && Math.abs(ry) <= h * 0.5;
+}
+*/
