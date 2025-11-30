@@ -3,7 +3,7 @@ import Render, { PositionType, SquareID } from "./Render"
 
 export type SquareData = 0 | 1 | 2 // none | normal | heavy
 
-type OriginalPiece = {
+export type OriginalPiece = {
   sqList: sqDirs[]
   heavySqIndex: number | "CENTER" | null // index of square | null is no heavy square
 }
@@ -103,8 +103,7 @@ export default class Gameplay {
     }
 
     this.lastHoveredFaceIndex = 1 // reset
-    this.rotatePiece(false) // rotate to fit default face
-    this.rotatePiece(false)
+    ///// this.rotatePiece(false) // rotate to fit default face
 
     // exit if passed certain turn number (no more piece needed)
     ////
@@ -239,13 +238,12 @@ export default class Gameplay {
     // reset
     this.render.input.hoveredSquare = null
 
-
-    //// test immediate placement
+    // apply placement
     for (let i = 0; i < calculatedSqs.length; i++) {
       const sq = calculatedSqs[i];
       this.boardData[sq.id[0]][sq.id[1]][sq.id[2]] = sq.isHeavy ? 2 : 1
     }
-    this.shiftPiecesInventory()
+    this.shiftPiecesInventory() // shift and create next piece
 
     //// test immediate clearing
     const clearedSqs = this.clearFilledRows()

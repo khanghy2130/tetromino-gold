@@ -1,6 +1,6 @@
 import type P5 from "p5"
 import GameClient from "./main"
-import Gameplay, { sqDirs, SquareData } from "./Gameplay"
+import Gameplay, { OriginalPiece, sqDirs, SquareData } from "./Gameplay"
 
 export type PositionType = [number, number]
 export type SquareID = [number, number, number] // [face, x, y]
@@ -12,7 +12,7 @@ export default class Render {
 
   CONSTS = {
     SL: 60, // square length
-    GC: { x: 200, y: 300 } // grid center
+    GC: { x: 200, y: 220 } // grid center
   }
 
   GRID_VERTICES: {
@@ -27,6 +27,7 @@ export default class Render {
     calculatedSqs: {
       id: SquareID, isHeavy: boolean,
       isOutOfBound?: boolean, isOverlapped?: boolean
+      faceChanges: boolean[]
     }[]
   } = { hoveredSquare: null, calculatedSqs: [] }
 
@@ -168,7 +169,7 @@ export default class Render {
     const { p5 } = this
     const { verts } = this.GRID_VERTICES
     p5.stroke(100)
-    p5.strokeWeight(2)
+    p5.strokeWeight(1)
 
     for (let f = 0; f < 3; f++) {
       const nextFaceIndex = f === 2 ? 0 : f + 1
@@ -188,8 +189,9 @@ export default class Render {
     }
   }
 
-  getSteppedSqID(sd: sqDirs, id: SquareID): SquareID | null {
+  getSteppedSqID(sd: sqDirs, id: SquareID): { id: SquareID, faceChanges: boolean[] } | null {
     id = id.slice() as SquareID
+    const faceChanges: boolean[] = [] // true = next face
 
     for (let i = 0; i < sd.length; i++) {
       switch (sd[i]) {
@@ -204,6 +206,7 @@ export default class Render {
         case "D":
           // going to next face?
           if (id[1] === 0) {
+            faceChanges.push(true)
             id = [id[0] === 2 ? 0 : id[0] + 1, id[2], 0]
             // apply rotation to sd
             sd = sd.map(d => this.gameplay.getRotatedDir(d, false))
@@ -214,6 +217,7 @@ export default class Render {
         case "L":
           // going to previous face?
           if (id[2] === 0) {
+            faceChanges.push(false)
             id = [id[0] === 0 ? 2 : id[0] - 1, 0, id[1]]
             // apply rotation to sd
             sd = sd.map(d => this.gameplay.getRotatedDir(d, true))
@@ -225,7 +229,7 @@ export default class Render {
       }
     }
 
-    return id
+    return { id, faceChanges }
   }
 
   renderButtons() {
@@ -237,28 +241,28 @@ export default class Render {
 
     // top left button
     p5.push()
-    p5.translate(105, 135)
+    p5.translate(105, 55)
     p5.rotate(-30)
     p5.rect(0, 0, 150, 35, 10)
     p5.pop()
 
     // top right button
     p5.push()
-    p5.translate(295, 135)
+    p5.translate(295, 55)
     p5.rotate(30)
     p5.rect(0, 0, 150, 35, 10)
     p5.pop()
 
     // bottom left button
     p5.push()
-    p5.translate(105, 465)
+    p5.translate(105, 385)
     p5.rotate(30)
     p5.rect(0, 0, 150, 35, 10)
     p5.pop()
 
     // bottom right button
     p5.push()
-    p5.translate(295, 465)
+    p5.translate(295, 385)
     p5.rotate(-30)
     p5.rect(0, 0, 150, 35, 10)
     p5.pop()
@@ -296,6 +300,43 @@ export default class Render {
       }
     }
 
+  }
+
+  getPieceImageData(op: OriginalPiece) {
+    const { sqList, heavySqIndex } = op
+    const hIndex: number | null = heavySqIndex === null ? null :
+      (heavySqIndex === "CENTER" ? 0 : heavySqIndex + 1)
+    const sqsCoors: PositionType[] = [[0, 0]]
+    for (let j = 0; j < sqList.length; j++) {
+      const sqdirs = sqList[j]
+      const coor: PositionType = [0, 0]
+      for (let d = 0; d < sqdirs.length; d++) {
+        switch (sqdirs[d]) {
+          case "U":
+            coor[1]++
+            break
+          case "D":
+            coor[1]--
+            break
+          case "L":
+            coor[0]--
+            break
+          case "R":
+            coor[0]++
+            break
+        }
+      }
+      sqsCoors.push(coor)
+    }
+
+    // fix some pieces
+    const RP = this.gameplay.RAW_PIECES
+    if (sqList === RP[1] || sqList === RP[3]) {
+      for (let c = 0; c < sqsCoors.length; c++) {
+        sqsCoors[c][0]++
+      }
+    }
+    return { sqsCoors, hIndex }
   }
 
   draw() {
@@ -343,17 +384,17 @@ export default class Render {
       if (currentPiece.hoveredSq) {
         const calculatedSqs: this["input"]["calculatedSqs"] = [
           // including center square
-          { id: currentPiece.hoveredSq, isHeavy: currentPiece.op.heavySqIndex === "CENTER" }
+          { id: currentPiece.hoveredSq, faceChanges: [], isHeavy: currentPiece.op.heavySqIndex === "CENTER" }
         ]
 
         // all other squares beside center square
         for (let i = 0; i < currentPiece.sqList.length; i++) {
-          const id = this.getSteppedSqID(currentPiece.sqList[i], currentPiece.hoveredSq)
-          if (id === null) {
-            calculatedSqs.push({ id: currentPiece.hoveredSq, isHeavy: false, isOutOfBound: true })
+          const item = this.getSteppedSqID(currentPiece.sqList[i], currentPiece.hoveredSq)
+          if (item === null) {
+            calculatedSqs.push({ id: currentPiece.hoveredSq, faceChanges: [], isHeavy: false, isOutOfBound: true })
           }
           else {
-            calculatedSqs.push({ id, isHeavy: currentPiece.op.heavySqIndex === i })
+            calculatedSqs.push({ id: item.id, faceChanges: item.faceChanges, isHeavy: currentPiece.op.heavySqIndex === i })
           }
         }
 
@@ -397,27 +438,39 @@ export default class Render {
       }
 
 
-      //// render inventory, use indexOf() sqList from RAW_PIECES to identify piece type
-
-
-      // const sqVerts = this.GRID_VERTICES
-      //   .faces[hoveredSquare[0]][hoveredSquare[1]][hoveredSquare[2]]
-      // p5.fill("yellow")
-      // p5.noStroke()
-      // p5.beginShape();
-      // for (let sv = 0; sv < sqVerts.length; sv++) {
-      //   p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
-      // }
-      // p5.endShape(p5.CLOSE);
-
-
 
     }
 
 
-    ////
+    //// render next pieces
+    gp.nextPieces
+    p5.stroke(0)
+    p5.strokeWeight(2)
+    for (let i = 0; i < 2; i++) {
+      const piece = gp.nextPieces[i]
+      if (piece === null) break
+
+      const { sqsCoors, hIndex } = this.getPieceImageData(piece)
+      for (let si = 0; si < sqsCoors.length; si++) {
+        const coor = sqsCoors[si]
+        if (hIndex === si) { p5.fill("yellow") } else { p5.fill(140) }
+        p5.square(coor[1] * 20 + 230 + i * 100, coor[0] * 20 + 500, 20)
+      }
+    }
+    //// render current piece
+    if (currentPiece) {
+      const { sqsCoors, hIndex } = this.getPieceImageData(currentPiece.op)
+      for (let si = 0; si < sqsCoors.length; si++) {
+        const coor = sqsCoors[si]
+        if (hIndex === si) { p5.fill("yellow") } else { p5.fill(140) }
+        p5.square(coor[1] * 20 + 80, coor[0] * 20 + 500, 20)
+      }
+    }
+
+
+    //// test text
     p5.fill(250)
-    p5.text(this.input.hoveredSquare + "", 50, 50)
+    p5.text(this.input.hoveredSquare + "", 50, 20)
 
   }
 
