@@ -80,7 +80,7 @@ export default class GameClient {
 			p5.touchEnded = () => {
 				this.isPressing = false
 				if (this.touchCountdown > 0) return
-				else this.touchCountdown = 10
+				else this.touchCountdown = 5
 
 				render.click()
 			}

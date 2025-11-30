@@ -194,33 +194,34 @@ export default class Render {
     for (let i = 0; i < sd.length; i++) {
       switch (sd[i]) {
         case "U":
-          if (id[2] === 2) return null
-          id[2]++
-          break
-        case "R":
           if (id[1] === 2) return null
           id[1]++
           break
-        case "D":
-          // going to previous face?
-          if (id[2] === 0) {
-            id = [id[0] === 0 ? 2 : id[0] - 1, 0, id[1]]
-            // apply rotation to sd
-            sd = sd.map(d => this.gameplay.getRotatedDir(d, false))
-          } else {
-            id[2]--
-          }
+        case "R":
+          if (id[2] === 2) return null
+          id[2]++
           break
-        case "L":
+        case "D":
           // going to next face?
           if (id[1] === 0) {
             id = [id[0] === 2 ? 0 : id[0] + 1, id[2], 0]
             // apply rotation to sd
-            sd = sd.map(d => this.gameplay.getRotatedDir(d, true))
+            sd = sd.map(d => this.gameplay.getRotatedDir(d, false))
           } else {
             id[1]--
           }
           break
+        case "L":
+          // going to previous face?
+          if (id[2] === 0) {
+            id = [id[0] === 0 ? 2 : id[0] - 1, 0, id[1]]
+            // apply rotation to sd
+            sd = sd.map(d => this.gameplay.getRotatedDir(d, true))
+          } else {
+            id[2]--
+          }
+          break
+
       }
     }
 
@@ -268,7 +269,8 @@ export default class Render {
     const { boardData } = this.gameplay
     const { p5 } = this
 
-    p5.noStroke()
+    p5.stroke(0)
+    p5.strokeWeight(3)
     for (let i = 0; i < 3; i++) {
       const rows = this.GRID_VERTICES.faces[i]
       for (let r = 0; r < 3; r++) {
@@ -279,9 +281,9 @@ export default class Render {
           const sqData: SquareData = boardData[i][r][rr]
           if (sqData === 0) { continue }
           if (sqData === 1) {
-            p5.fill(130)
+            p5.fill(150)
           } else {
-            p5.fill(180)
+            p5.fill(237, 252, 66) // heavy
           }
 
           p5.beginShape();
@@ -312,6 +314,7 @@ export default class Render {
     // holding a piece?
     if (currentPiece) {
 
+      // update hoverSquare
       const hoveredSquare = this.getHoveredSquare()
       this.input.hoveredSquare = hoveredSquare // for click action
       if (hoveredSquare) {
@@ -324,7 +327,7 @@ export default class Render {
           const goingPreviousFace = (lastHoveredFaceIndex === 0 && hoveredSquare[0] === 2) ||
             (lastHoveredFaceIndex === 1 && hoveredSquare[0] === 0) ||
             (lastHoveredFaceIndex === 2 && hoveredSquare[0] === 1)
-          gp.rotatePiece(!goingPreviousFace)
+          gp.rotatePiece(goingPreviousFace)
           gp.lastHoveredFaceIndex = hoveredSquare[0] as 0 | 1 | 2
         }
 
@@ -355,17 +358,31 @@ export default class Render {
         }
 
         ////// level 3: also set isHeavy to each non-heavy if next to existing heavy
-        ///// check if overlapped (also set sq.isOverlapped) OR out of bound => set color
 
 
+        // check if overlapped (also set possible)
+        let possiblePlacement = true
+        for (let i = 0; i < calculatedSqs.length; i++) {
+          const sq = calculatedSqs[i];
+          sq.isOverlapped = gp.boardData[sq.id[0]][sq.id[1]][sq.id[2]] !== 0
+          if (sq.isOverlapped || sq.isOutOfBound) { possiblePlacement = false }
+        }
 
-        ///////// quick render test
+        // rendering
         for (let i = 0; i < calculatedSqs.length; i++) {
           const { id, isHeavy, isOutOfBound } = calculatedSqs[i]
           if (isOutOfBound) continue
 
           const sqVerts = this.GRID_VERTICES.faces[id[0]][id[1]][id[2]]
-          p5.fill("yellow")
+          if (possiblePlacement) {
+            if (isHeavy) {
+              p5.fill(237, 252, 66, 140)
+            } else {
+              p5.fill(150, 255, 180, 140)
+            }
+          } else {
+            p5.fill(242, 82, 82, 140)
+          }
           p5.noStroke()
           p5.beginShape();
           for (let sv = 0; sv < sqVerts.length; sv++) {
@@ -373,6 +390,7 @@ export default class Render {
           }
           p5.endShape(p5.CLOSE);
         }
+
 
         // for click action
         this.input.calculatedSqs = calculatedSqs
@@ -397,6 +415,10 @@ export default class Render {
     }
 
 
+    ////
+    p5.fill(250)
+    p5.text(this.input.hoveredSquare + "", 50, 50)
+
   }
 
   click() {
@@ -418,7 +440,7 @@ export default class Render {
 
   keyPressed() {
     if (this.p5.keyCode === 82) {
-      this.gameplay.rotatePiece(false)
+      this.gameplay.rotatePiece(true)
     }
   }
 }
