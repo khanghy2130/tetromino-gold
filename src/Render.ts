@@ -294,7 +294,6 @@ export default class Render {
             p5.vertex(sqVerts[sv][0], sqVerts[sv][1]);
           }
           p5.endShape(p5.CLOSE);
-
         }
       }
     }

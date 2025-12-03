@@ -62,8 +62,13 @@ export default class Gameplay {
   }
 
   getNewPiece(): OriginalPiece {
+    // make sure new piece is not the same type as last one
+    let sqList: sqDirs[] = getRandomItem(this.RAW_PIECES)
+    while (sqList === this.nextPieces[0]?.sqList) {
+      sqList = getRandomItem(this.RAW_PIECES)
+    }
     return {
-      sqList: getRandomItem(this.RAW_PIECES),
+      sqList: sqList,
       goldenSqIndex: getRandomItem([0, 1, 2, "CENTER"])
     }
   }
@@ -148,7 +153,7 @@ export default class Gameplay {
   }
 
   // clear and return list of cleared squares, empty array if no clearing
-  clearFilledRows(): ClearableSquare[] {
+  getClearableSqs(): ClearableSquare[] {
     const sqs: ClearableSquare[] = []
     const bd = this.boardData
 
@@ -171,20 +176,18 @@ export default class Gameplay {
           }
         }
         if (isClearable) {
-          // add to list
-          for (let s = 0; s < sids.length; s++) {
+          // add to list (if not already in there)
+          outer: for (let s = 0; s < sids.length; s++) {
             const sid = sids[s]
+            for (let ci = 0; ci < sqs.length; ci++) {
+              const cid = sqs[ci].id
+              if (cid[0] === sid[0] && cid[1] === sid[1] && cid[2] === sid[2]) { continue outer }
+            }
             const sqData = bd[sid[0]][sid[1]][sid[2]]
             sqs.push({ id: sid, prevState: sqData })
           }
         }
       }
-    }
-
-    // apply clearing
-    for (let i = 0; i < sqs.length; i++) {
-      const sid = sqs[i].id;
-      this.boardData[sid[0]][sid[1]][sid[2]] = 0
     }
 
     return sqs
@@ -201,6 +204,7 @@ export default class Gameplay {
     // reset
     this.render.input.hoveredSquare = null
     this.remainingPieces--
+    this.shiftPiecesInventory() // shift and create next piece
 
     // apply placement
     for (let i = 0; i < calculatedSqs.length; i++) {
@@ -208,26 +212,56 @@ export default class Gameplay {
       bd[sq.id[0]][sq.id[1]][sq.id[2]] = sq.isGolden ? 2 : 1
     }
 
-    // apply spread from new golden square to its adjs
-    for (let i = 0; i < calculatedSqs.length; i++) {
-      const sq = calculatedSqs[i]
-      if (!sq.isGolden) continue
+    const spreadSources: SquareID[] = []
+    const newGoldenSqs: SquareID[] = []
 
-      const asids = this.getAdjacentSqIDs(sq.id)
+    // add all golden sqs as spread sources
+    for (let i = 0; i < 3; i++) {
+      for (let y = 0; y < 3; y++) {
+        for (let x = 0; x < 3; x++) {
+          if (!bd[i][y][x]) continue
+          spreadSources.push([i, y, x])
+        }
+      }
+    }
+    // apply spread
+    while (spreadSources.length > 0) {
+      const sid = spreadSources.shift()!
+      const asids = this.getAdjacentSqIDs(sid)
       for (let ai = 0; ai < asids.length; ai++) {
         const asid = asids[ai]
+        // is normal square?
         if (bd[asid[0]][asid[1]][asid[2]] === 1) {
-          bd[asid[0]][asid[1]][asid[2]] = 2
+          const aasids = this.getAdjacentSqIDs(asid)
+          let goldenAdjsCount = 0
+
+          // count adj golden and add potential new sources
+          for (let aai = 0; aai < aasids.length; aai++) {
+            const aasid = aasids[aai];
+            const sqd = bd[aasid[0]][aasid[1]][aasid[2]]
+            if (sqd === 2) { goldenAdjsCount++ }
+          }
+          // if has at least 2 adj golden squares, then become golden and another source
+          if (goldenAdjsCount > 1) {
+            bd[asid[0]][asid[1]][asid[2]] = 2
+            newGoldenSqs.push(asid)
+            spreadSources.push(asid)
+          }
         }
       }
     }
 
-    this.shiftPiecesInventory() // shift and create next piece
+    const clearedSqs = this.getClearableSqs()
+    //// should create dummies here to mask the real data (newGoldenSqs & clearedSqs)
 
-    //// should create dummies here to mask the real data
-    //// test immediate clearing & immediate scoring
-    const clearedSqs = this.clearFilledRows()
-    this.goldPoints += clearedSqs.filter(s => s.prevState === 2).length
+
+    /// immedate clearing
+    for (let i = 0; i < clearedSqs.length; i++) {
+      const sid = clearedSqs[i].id;
+      this.boardData[sid[0]][sid[1]][sid[2]] = 0
+    }
+
+    this.goldPoints += clearedSqs.filter(s => s.prevState === 2).length /// immediate scoring
   }
 
 }
