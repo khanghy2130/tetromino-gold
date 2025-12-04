@@ -44,6 +44,7 @@ export default class Gameplay {
 
   boardData: SquareData[][][] = [] // face > row > square
   phase: "INTRO" | "CLEAR" | "PLAY" | "PLACE" | "SPREAD" | "END" = "INTRO"
+  placingSubphase: "SLIDE" | "WRAP1" | "WRAP2" = "SLIDE"
 
   currentPiece: CurrentPiece | null = null
   nextPieces: [OriginalPiece | null, OriginalPiece | null] = [null, null]
@@ -295,7 +296,7 @@ export default class Gameplay {
 
     //// should create dummies here to mask the real data (newGoldenSqs & clearedSqs)
 
-    // this is last because it set currentPiece to null
+    // set currentPiece to null, reset useGold
     this.shiftPiecesInventory() // shift and create next piece
   }
 
@@ -329,21 +330,71 @@ export default class Gameplay {
     return { id, faceChanges }
   }
 
+  populateSnaps(snaps: APSSnap[]) {
+    const { SL, GC } = this.render.CONSTS
+    const { PI, cos, sin } = Math
+
+
+    // loop through each snap: add aSqVerts, startDeg, endDeg
+    for (let snapIndex = 0; snapIndex < snaps.length; snapIndex++) {
+      const snap = snaps[snapIndex]
+      const cf = snap.id[0] // current face
+      // is going to next face from last snap to current snap?
+      let wasNextFace = true // first snap is default to true
+      if (snapIndex > 0) {
+        const pf = snaps[snapIndex - 1].id[0]
+        wasNextFace = ((cf === pf + 1) || (pf === 2 && cf === 0))
+      }
+
+      let i = cf + (wasNextFace ? 0 : 1)
+      const deg = PI / 180 * (i * 120 - 150)
+      const deg2 = deg + PI / 180 * 120
+      const _60deg = PI / 180 * (60)
+      const cosDeg = cos(deg)
+      const sinDeg = sin(deg)
+
+      const getEdgeVerts = (r: number): PositionType => (
+        [cosDeg * SL * r + GC.x, sinDeg * SL * r + GC.y]
+      )
+
+      // not representative for ID
+      const y = wasNextFace ? snap.id[1] : snap.id[2]
+      const x = wasNextFace ? snap.id[2] : snap.id[1]
+      snap.aSqVerts = [
+        { edgeVert: getEdgeVerts(y), distCount: x },
+        { edgeVert: getEdgeVerts(y + 1), distCount: x },
+        { edgeVert: getEdgeVerts(y + 1), distCount: x + 1 },
+        { edgeVert: getEdgeVerts(y), distCount: x + 1 }
+      ]
+      if (wasNextFace) {
+        snap.startDeg = deg2 - _60deg
+        snap.endDeg = deg2
+      } else {
+        snap.startDeg = deg + _60deg
+        snap.endDeg = deg
+      }
+    }
+
+  }
+
   startPlacingAnimation() {
     const cp = this.currentPiece
     if (!cp || !cp.hoveredSq) { return }
 
-    /////const csqs = this.render.input.calculatedSqs
+    //// set phase
 
     // set up APS with only id in snaps
+    const specialSqData: SquareData = this.useGold ? 2 : 3
     const animatedPlacingSqs: APS[] = [{
-      isGolden: cp.op.goldenSqIndex === "CENTER",
-      snaps: [{ id: cp.hoveredSq.slice() as SquareID, aSqVerts: null }]
+      sqData: cp.op.goldenSqIndex === "CENTER" ? specialSqData : 1,
+      snaps: [{ id: cp.hoveredSq.slice() as SquareID }]
     }]
     // all other squares beside center square
     for (let i = 0; i < cp.sqList.length; i++) {
-      const { id, faceChanges } = this.getFirstSnapID(cp.hoveredSq.slice() as SquareID, cp.sqList[i])
-      const snaps: APSSnap[] = [{ id, aSqVerts: null }] // default face snap
+      const { id, faceChanges } = this.getFirstSnapID(
+        cp.hoveredSq.slice() as SquareID, cp.sqList[i]
+      )
+      const snaps: APSSnap[] = [{ id }] // default face snap
 
       // add 2nd & 3rd snaps
       while (faceChanges.length > 0) {
@@ -351,17 +402,23 @@ export default class Gameplay {
         const lastID = snaps[snaps.length - 1].id
         if (isNextFace) {
           const faceIndex = lastID[0] === 2 ? 0 : lastID[0] + 1
-          snaps.push({ id: [faceIndex, lastID[2], -lastID[1] - 1], aSqVerts: null })
+          snaps.push({ id: [faceIndex, lastID[2], -lastID[1] - 1] })
         } else {
           const faceIndex = lastID[0] === 0 ? 2 : lastID[0] - 1
-          snaps.push({ id: [faceIndex, -lastID[2] - 1, lastID[1]], aSqVerts: null })
+          snaps.push({ id: [faceIndex, -lastID[2] - 1, lastID[1]] })
         }
       }
-      animatedPlacingSqs.push({ isGolden: cp.op.goldenSqIndex === i, snaps: snaps })
+      animatedPlacingSqs.push({
+        sqData: cp.op.goldenSqIndex === i ? specialSqData : 1, snaps: snaps
+      })
     }
 
-    ////// calculate aSqVert for all squares' snaps'
+    // add aSqVerts to all snaps
+    for (let sqIndex = 0; sqIndex < 4; sqIndex++) {
+      this.populateSnaps(animatedPlacingSqs[sqIndex].snaps)
+    }
 
+    this.render.animatedPlacingSqs = animatedPlacingSqs
     console.log(animatedPlacingSqs)
   }
 

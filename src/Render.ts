@@ -7,11 +7,11 @@ export type SquareID = [number, number, number] // [face, x, y]
 
 
 // AdvancedSquareVertex
-type ASV = { pos: PositionType, edgePos: PositionType, clockwise: boolean }
+type ASV = { edgeVert: PositionType, distCount: number }
 // Animated Placing Square Snapshot
-export type APSSnap = { id: SquareID, aSqVerts: [ASV, ASV, ASV, ASV] | null } // snapshot of a square at one face
+export type APSSnap = { id: SquareID, startDeg?: number, endDeg?: number, aSqVerts?: [ASV, ASV, ASV, ASV] } // snapshot of a square at one face
 // AnimatedPlacingSquare: array of the same square with all (1-3) snaps
-export type APS = { isGolden: boolean, snaps: APSSnap[] }
+export type APS = { sqData: SquareData, snaps: APSSnap[] }
 
 export default class Render {
   gc: GameClient
@@ -280,7 +280,7 @@ export default class Render {
     const { p5 } = this
 
     p5.stroke(0)
-    p5.strokeWeight(3)
+    p5.strokeWeight(4)
     for (let i = 0; i < 3; i++) {
       const rows = this.GRID_VERTICES.faces[i]
       for (let r = 0; r < 3; r++) {
@@ -481,6 +481,49 @@ export default class Render {
     p5.textSize(24)
     // p5.text(this.input.hoveredSquare + "", 50, 20)
     p5.text(gp.remainingPieces + "\n" + gp.goldPoints, 370, 40)
+
+
+
+    ////// test render first snap
+    if (this.animatedPlacingSqs.length > 0) {
+      const { cos, sin } = Math
+      const SL = this.CONSTS.SL
+      p5.stroke(0)
+      p5.strokeWeight(4)
+      // for each square
+      for (let i = 0; i < 4; i++) {
+        const aps = this.animatedPlacingSqs[i]
+        const snap = aps.snaps[0] // FIRST snap
+
+        if (aps.sqData === 1) {
+          p5.fill(200)
+        } else if (aps.sqData === 2) {
+          p5.fill(237, 252, 66) // golden
+        } else if (aps.sqData === 3) {
+          p5.fill(240, 38, 216) // destroyer
+        }
+        p5.beginShape()
+        // for each vertex
+        for (let v = 0; v < 4; v++) {
+          const { edgeVert, distCount } = snap.aSqVerts![v]
+          p5.vertex(
+            edgeVert[0] + cos(snap.endDeg!) * distCount * SL,
+            edgeVert[1] + sin(snap.endDeg!) * distCount * SL
+          )
+        }
+        p5.endShape(p5.CLOSE)
+      }
+    }
+
+
+
+
+
+
+
+
+
+
   }
 
   click() {
