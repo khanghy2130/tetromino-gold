@@ -291,9 +291,6 @@ export default class Gameplay {
     render.animatedClearingSqs = clearedSqs
 
 
-    ////// this.goldPoints += clearedSqs.filter(s => s.prevState === 2).length
-
-
     this.startPlacingAnimation()
 
     // set currentPiece to null, reset useGold

@@ -13,6 +13,14 @@ export type APSSnap = { id: SquareID, startDeg?: number, endDeg?: number, aSqVer
 // AnimatedPlacingSquare: array of the same square with all (1-3) snaps
 export type APS = { sqData: SquareData, snaps: APSSnap[] }
 
+type GoldenLaser = {
+  targetPos: PositionType
+  startPos: PositionType
+  pos1: PositionType
+  pos2: PositionType
+  delay: number // how long the line is
+}
+
 export default class Render {
   gc: GameClient
   p5!: P5
@@ -20,7 +28,8 @@ export default class Render {
 
   CONSTS = {
     SL: 60, // square length
-    GC: { x: 200, y: 220 } // grid center
+    GC: { x: 200, y: 220 }, // grid center
+    LASER_SPEED: 15
   }
 
   GRID_VERTICES: {
@@ -33,6 +42,8 @@ export default class Render {
 
   animatedSpreadingSqs: ({ id: SquareID, prg: number })[] = []
   animatedClearingSqs: ClearableSquare[] = []
+
+  goldenLasers: GoldenLaser[] = []
 
   touchscreenOn: boolean = false
 
@@ -491,7 +502,6 @@ export default class Render {
       }
     }
 
-
     // render PLACE, SPREAD, CLEAR animations
     if (gp.phase !== "PLAY") {
       p5.stroke(0)
@@ -527,9 +537,19 @@ export default class Render {
         p5.pop()
 
         if (gp.phase === "CLEAR") {
-          acsq.prg += 0.05
+          acsq.prg += 0.06
           if (acsq.prg > 1) {
             animatedClearingSqs.shift() // always first to leave
+            // was golden? add golden laser
+            if (acsq.prevState === 2) {
+              this.goldenLasers.push({
+                targetPos: [100, 500], // gold points position
+                startPos: centerPos.slice() as PositionType,
+                pos1: centerPos.slice() as PositionType,
+                pos2: centerPos.slice() as PositionType,
+                delay: 5
+              })
+            }
           }
         }
       }
@@ -683,8 +703,49 @@ export default class Render {
       }
     }
 
+    // render golden lasers
+    const LASER_SPEED = this.CONSTS.LASER_SPEED
+    for (let i = this.goldenLasers.length - 1; i >= 0; i--) {
+      const gl = this.goldenLasers[i]
+
+      let dx = gl.targetPos[0] - gl.pos1[0],
+        dy = gl.targetPos[1] - gl.pos1[1],
+        d = Math.hypot(dx, dy)
+      // would go past target? set to targetPos
+      if (LASER_SPEED >= d) {
+        gl.pos1[0] = gl.targetPos[0]
+        gl.pos1[1] = gl.targetPos[1]
+      } else {
+        gl.pos1[0] += dx / d * LASER_SPEED
+        gl.pos1[1] += dy / d * LASER_SPEED
+      }
+      if (gl.delay > 0) { gl.delay-- }
+      else {
+        // update pos2
+        let dx = gl.targetPos[0] - gl.pos2[0],
+          dy = gl.targetPos[1] - gl.pos2[1],
+          d = Math.hypot(dx, dy)
+        // would go past target? remove laser and add to score
+        if (LASER_SPEED >= d) {
+          gp.goldPoints++
+          this.goldenLasers.splice(i, 1)
+        } else {
+          gl.pos2[0] += dx / d * LASER_SPEED
+          gl.pos2[1] += dy / d * LASER_SPEED
+        }
+      }
+
+      p5.stroke(0, 0, 0)
+      p5.strokeWeight(10)
+      p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
+      p5.stroke(247, 255, 23)
+      p5.strokeWeight(5)
+      p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
+    }
+
 
     //// test text
+    p5.noStroke()
     p5.fill(250)
     p5.textSize(24)
     // p5.text(this.input.hoveredSquare + "", 50, 20)
