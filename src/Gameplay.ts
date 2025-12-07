@@ -51,7 +51,6 @@ export default class Gameplay {
 
   constructor(gameClient: GameClient) {
     this.gc = gameClient
-    this.setUpNewGame()
   }
 
   getNewPiece(): OriginalPiece {
@@ -90,6 +89,7 @@ export default class Gameplay {
   // called after modifying remainingPieces
   shiftPiecesInventory() {
     this.lastHoveredFaceIndex = 1 // reset
+    this.render.piecesMovementPrg = 0
 
     // set currentPiece to the next one
     const nextPiece = this.nextPieces[0]

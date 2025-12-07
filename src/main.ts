@@ -60,6 +60,7 @@ export default class GameClient {
 				render.gameplay = gameplay
 				gameplay.render = render
 
+				gameplay.setUpNewGame()
 			}
 
 			p5.draw = () => {

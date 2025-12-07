@@ -55,6 +55,7 @@ export default class Render {
   animatedClearingSqs: ClearableSquare[] = []
 
   goldenLasers: GoldenLaser[] = []
+  piecesMovementPrg: number = 0
 
   touchscreenOn: boolean = false
 
@@ -271,12 +272,16 @@ export default class Render {
     if (prg < 1) {
       const s = Math.sin(Math.PI * Math.max(0, Math.min(1, prg)))
       p5.scale(1 + s * 0.2, 1 - s * 0.2)
+      p5.fill(p5.lerpColor(
+        p5.color(150),
+        p5.color(100),
+        prg
+      ))
     }
-    p5.fill(100)
+    else { p5.fill(100) }
     p5.rect(0, 0, w, h, 10)
     p5.fill(250)
     customFont.render(t, tx, ty, tSize, p5.color(250), p5)
-
     p5.pop()
   }
 
@@ -317,7 +322,7 @@ export default class Render {
     // update all of btnPrgs
     for (const key in this.btnPrgs) {
       if (this.btnPrgs[key] < 1) {
-        this.btnPrgs[key] = Math.min(1, this.btnPrgs[key] + 0.15) // btn animation speed
+        this.btnPrgs[key] = Math.min(1, this.btnPrgs[key] + 0.16) // btn animation speed
       }
     }
 
@@ -447,14 +452,33 @@ export default class Render {
     const { p5, gameplay: gp } = this
 
     p5.cursor(p5.ARROW)
-    p5.background(50)
+    p5.background(30)
     p5.noStroke()
     this.renderButtons()
     this.renderGrid()
     this.renderExistingSquares()
 
-    // show HAND cursor if hovering on a button
-    if (this.hoveredBtn) { p5.cursor(p5.HAND) }
+
+    // desktop render
+    if (!this.touchscreenOn) {
+      // show HAND cursor if hovering on a button
+      if (this.hoveredBtn) { p5.cursor(p5.HAND) }
+
+      // render control hints
+      const _30deg = Math.PI / 180 * 30
+      p5.noStroke()
+      p5.push()
+      p5.translate(50, 350)
+      p5.rotate(_30deg)
+      customFont.render("click: place", 0, 0, 12, p5.color(250), p5)
+      p5.pop()
+      p5.push()
+      p5.translate(260, 400)
+      p5.rotate(-_30deg)
+      customFont.render("r: rotate\ns: switch", 0, 0, 12, p5.color(250), p5)
+      p5.pop()
+    }
+
 
     const { currentPiece } = gp
     // holding a piece?
@@ -532,31 +556,36 @@ export default class Render {
           p5.endShape(p5.CLOSE);
         }
 
-        if (possiblePlacement) { p5.cursor(p5.HAND) }
+        if (possiblePlacement && !this.touchscreenOn) { p5.cursor(p5.HAND) }
         this.input.calculatedSqs = calculatedSqs // for click action
       }
     }
 
 
     // render next pieces
-    gp.nextPieces
     p5.stroke(0)
     p5.strokeWeight(2)
     for (let i = 0; i < 2; i++) {
       const piece = gp.nextPieces[i]
       if (piece === null) break
 
+      const yOffset = (1 - this.piecesMovementPrg) * (i === 0 ? 60 : 150)
       const { sqsCoors, hIndex } = this.getPieceImageData(piece)
       for (let si = 0; si < sqsCoors.length; si++) {
         const coor = sqsCoors[si]
         if (hIndex === si) { p5.fill("yellow") } else { p5.fill(140) }
-        p5.square(coor[1] * 18 + 350, coor[0] * 18 + 460 + i * 60, 18)
+        p5.square(coor[1] * 18 + 350, coor[0] * 18 + 460 + i * 60 + yOffset, 18)
       }
     }
+    if (this.piecesMovementPrg < 1) { this.piecesMovementPrg = Math.min(1, this.piecesMovementPrg + 0.08) }
+
     // render current piece
     if (currentPiece) {
-      p5.strokeWeight(3)
+
       const { sqsCoors, hIndex } = this.getPieceImageData(currentPiece.op)
+      const prg = 1 - this.piecesMovementPrg
+      const squareSize = 30 - 12 * prg
+      p5.strokeWeight(3 + (-1 * prg))
       for (let si = 0; si < sqsCoors.length; si++) {
         const coor = sqsCoors[si]
         if (hIndex === si) {
@@ -564,7 +593,11 @@ export default class Render {
           else { p5.fill(240, 38, 216) }
         }
         else { p5.fill(140) }
-        p5.square(coor[1] * 30 + 200, coor[0] * 30 + 475, 30)
+        p5.square(
+          coor[1] * squareSize + 200 + (150 * prg),
+          coor[0] * squareSize + 475 + (-15 * prg),
+          squareSize
+        )
       }
     }
 
