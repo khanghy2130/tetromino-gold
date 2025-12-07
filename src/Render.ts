@@ -1,6 +1,7 @@
 import type P5 from "p5"
 import GameClient from "./main"
 import Gameplay, { ClearableSquare, OriginalPiece, sqDirs, SquareData } from "./Gameplay"
+import { customFont } from "./font"
 
 export type PositionType = [number, number]
 export type SquareID = [number, number, number] // [face, x, y]
@@ -29,13 +30,23 @@ export default class Render {
   CONSTS = {
     SL: 60, // square length
     GC: { x: 200, y: 220 }, // grid center
-    LASER_SPEED: 15
+    LASER_SPEED: 20
   }
 
   GRID_VERTICES: {
     verts: PositionType[],
     faces: PositionType[][][][] // 3 faces each has 3x3 squares each has 4 vertices 
   }
+
+  btnPrgs: Record<string, number> = {
+    help: 1,
+    touchscreen: 1,
+    place: 1,
+    rotate: 1,
+    switch: 1,
+    play: 1 // also in end phase
+  }
+  hoveredBtn: null | "PLAY" | "HELP" | "TOUCHSCREEN" | "PLACE" | "ROTATE" | "SWITCH" = null
 
   animatedPlacingSqs: APS[] = []
   highestSnapsCount: number = 0
@@ -252,42 +263,44 @@ export default class Render {
     return id
   }
 
-  renderButtons() {
-    const { p5 } = this
-    const _30deg = Math.PI / 180 * 30
-
-    // temp setup
+  renderBtn(t: string, tSize: number, tx: number, ty: number, prg: number, x: number, y: number, w: number, h: number, r: number) {
+    const p5 = this.p5
+    p5.push()
+    p5.translate(x, y)
+    if (r !== 0) { p5.rotate(r) }
+    if (prg < 1) {
+      const s = Math.sin(Math.PI * Math.max(0, Math.min(1, prg)))
+      p5.scale(1 + s * 0.2, 1 - s * 0.2)
+    }
     p5.fill(100)
-    p5.noStroke()
+    p5.rect(0, 0, w, h, 10)
+    p5.fill(250)
+    customFont.render(t, tx, ty, tSize, p5.color(250), p5)
+
+    p5.pop()
+  }
+
+  renderButtons() {
+    const _30deg = Math.PI / 180 * 30
+    this.p5.noStroke()
 
     // top left button
-    p5.push()
-    p5.translate(105, 55)
-    p5.rotate(-_30deg)
-    p5.rect(0, 0, 150, 35, 10)
-    p5.pop()
-
+    this.renderBtn("help", 20, -35, 10, this.btnPrgs.help, 105, 55, 150, 35, -_30deg)
     // top right button
-    p5.push()
-    p5.translate(295, 55)
-    p5.rotate(_30deg)
-    p5.rect(0, 0, 150, 35, 10)
-    p5.pop()
-
+    this.renderBtn("mobile: " + (this.touchscreenOn ? "on" : "off"), 14, -62, 7, this.btnPrgs.touchscreen, 295, 55, 150, 35, _30deg)
     // bottom left button
-    p5.push()
-    p5.translate(105, 385)
-    p5.rotate(_30deg)
-    p5.rect(0, 0, 150, 35, 10)
-    p5.pop()
-
+    this.renderBtn("place", 18, -37, 9, this.btnPrgs.place, 105, 385, 150, 35, _30deg)
     // bottom right button
-    p5.push()
-    p5.translate(295, 385)
-    p5.rotate(-_30deg)
-    p5.rect(0, 0, 150, 35, 10)
-    p5.pop()
+    this.renderBtn("rotate", 18, -48, 9, this.btnPrgs.rotate, 295, 385, 150, 35, -_30deg)
+    // switch btn
+    this.renderBtn("switch", 18, -46, 9, this.btnPrgs.switch, 200, 560, 150, 35, 0)
 
+    // update all of btnPrgs
+    for (const key in this.btnPrgs) {
+      if (this.btnPrgs[key] < 1) {
+        this.btnPrgs[key] = Math.min(1, this.btnPrgs[key] + 0.15) // btn animation speed
+      }
+    }
   }
 
   isThePlacingSquare(id: SquareID): boolean {
@@ -363,6 +376,17 @@ export default class Render {
         sqsCoors[c][0]++
       }
     }
+    if (sqList === RP[0] || sqList === RP[1]) {
+      for (let c = 0; c < sqsCoors.length; c++) {
+        sqsCoors[c][1]--
+      }
+    }
+    if (sqList === RP[5]) {
+      for (let c = 0; c < sqsCoors.length; c++) {
+        sqsCoors[c][1] -= 0.5
+        sqsCoors[c][0] += 0.5
+      }
+    }
     return { sqsCoors, hIndex }
   }
 
@@ -375,21 +399,17 @@ export default class Render {
 
 
   draw() {
-    const gp = this.gameplay
-    const p5 = this.p5
+    const { p5, gameplay: gp } = this
 
     p5.background(50);
 
     this.renderButtons()
-
     this.renderGrid()
-
     this.renderExistingSquares()
 
     const { currentPiece } = gp
     // holding a piece?
     if (currentPiece) {
-
       // update hoverSquare
       const hoveredSquare = this.getHoveredSquare()
       this.input.hoveredSquare = hoveredSquare // for click action
@@ -467,7 +487,6 @@ export default class Render {
         // for click action
         this.input.calculatedSqs = calculatedSqs
       }
-
     }
 
 
@@ -483,11 +502,12 @@ export default class Render {
       for (let si = 0; si < sqsCoors.length; si++) {
         const coor = sqsCoors[si]
         if (hIndex === si) { p5.fill("yellow") } else { p5.fill(140) }
-        p5.square(coor[1] * 20 + 230 + i * 100, coor[0] * 20 + 500, 20)
+        p5.square(coor[1] * 18 + 350, coor[0] * 18 + 460 + i * 60, 18)
       }
     }
     // render current piece
     if (currentPiece) {
+      p5.strokeWeight(3)
       const { sqsCoors, hIndex } = this.getPieceImageData(currentPiece.op)
       for (let si = 0; si < sqsCoors.length; si++) {
         const coor = sqsCoors[si]
@@ -496,7 +516,7 @@ export default class Render {
           else { p5.fill(240, 38, 216) }
         }
         else { p5.fill(140) }
-        p5.square(coor[1] * 20 + 80, coor[0] * 20 + 500, 20)
+        p5.square(coor[1] * 30 + 200, coor[0] * 30 + 475, 30)
       }
     }
 
@@ -545,7 +565,7 @@ export default class Render {
                 startPos: centerPos.slice() as PositionType,
                 pos1: centerPos.slice() as PositionType,
                 pos2: centerPos.slice() as PositionType,
-                delay: 5
+                delay: 4
               })
             }
           }
@@ -749,12 +769,9 @@ export default class Render {
     p5.text(gp.remainingPieces + "\n" + gp.goldPoints, 370, 40)
 
     if (gp.gameOverMessage) console.log(gp.gameOverMessage)
-
-
   }
 
   click() {
-    const p5 = this.p5
     const gp = this.gameplay
 
     // touchscreen mode
@@ -769,10 +786,11 @@ export default class Render {
   }
 
   keyPressed() {
+    this.btnPrgs.help = 0
     if (this.p5.keyCode === 82) {
       this.gameplay.rotatePiece(true)
     }
-    if (this.p5.keyCode === 32) {
+    if (this.p5.keyCode === 83) {
       this.gameplay.switchType()
     }
   }
