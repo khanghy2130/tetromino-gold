@@ -46,6 +46,7 @@ export default class Render {
 
   btnPrgs: Record<string, number> = {
     help: 1,
+    next: 1,
     touchscreen: 1,
     place: 1,
     rotate: 1,
@@ -56,9 +57,9 @@ export default class Render {
 
   hintAtHelp: boolean = true
   helpModal: {
-    isOpened: boolean, index: number, targetY: number, y: number, prg: number
+    isOpened: boolean, index: number, targetY: number, prevY: number, prg: number
   } = {
-      isOpened: false, index: 0, targetY: 0, y: -100, prg: 0
+      isOpened: false, index: 0, targetY: 0, prevY: -100, prg: 0
     }
 
   animatedPlacingSqs: APS[] = []
@@ -210,7 +211,7 @@ export default class Render {
   }
 
   getHoveredSquare(): SquareID | null {
-    if (this.gameplay.phase !== "PLAY") { return null } // not play phase
+    if (this.gameplay.phase !== "PLAY" || this.helpModal.isOpened) { return null } // not play phase || is showing help
     const { verts } = this.GRID_VERTICES
     const mousePos: PositionType = [this.gc.mx, this.gc.my]
     let faceIndex: number | null = null;
@@ -242,7 +243,7 @@ export default class Render {
   renderGrid() {
     const { p5 } = this
     const { verts } = this.GRID_VERTICES
-    p5.stroke(50)
+    p5.stroke(this.getSqColor(1))
     p5.strokeWeight(1)
 
     for (let f = 0; f < 3; f++) {
@@ -310,14 +311,13 @@ export default class Render {
       const s = Math.sin(Math.PI * Math.max(0, Math.min(1, prg)))
       p5.scale(1 + s * 0.2, 1 - s * 0.2)
       p5.fill(p5.lerpColor(
-        p5.color(150),
-        p5.color(100),
+        p5.color(214, 180, 30),
+        p5.color(this.getSqColor(1)),
         prg
       ))
     }
-    else { p5.fill(100) }
+    else { p5.fill(this.getSqColor(1)) }
     p5.rect(0, 0, w, h, 10)
-    p5.fill(250)
     customFont.render(t, tx, ty, tSize, p5.color(250), p5)
     p5.pop()
   }
@@ -404,7 +404,7 @@ export default class Render {
     const { boardData } = this.gameplay
     const p5 = this.p5
 
-    p5.stroke(0)
+    p5.stroke(this.getSqColor(1))
     p5.strokeWeight(4)
     for (let i = 0; i < 3; i++) {
       const rows = this.GRID_VERTICES.faces[i]
@@ -483,9 +483,9 @@ export default class Render {
   }
 
   getSqColor(sd: SquareData): P5.Color {
-    if (sd === 1) { return this.p5.color(200, 200, 200) }
-    if (sd === 2) { return this.p5.color(237, 252, 66) } // golden
-    if (sd === 3) { return this.p5.color(240, 38, 216) }// destroyer
+    if (sd === 1) { return this.p5.color(130, 118, 60) }
+    if (sd === 2) { return this.p5.color(245, 228, 44) } // golden
+    if (sd === 3) { return this.p5.color(242, 80, 245) } // destroyer
     return this.p5.color(0, 0, 0)
   }
 
@@ -494,12 +494,12 @@ export default class Render {
     const sp = endModal.subphase
 
     // bg & message
-    if (sp === "RATING") { p5.background(0) }
+    if (sp === "RATING") { p5.background(26, 23, 11) }
     else {
       const prg = 1 - Math.pow(1 - gp.ug, 3)
       // bg rect
       p5.noStroke()
-      p5.fill(0, 0, 0, sp === "MESSAGE" ? prg * 235 : (sp === "DELAY" ? 235 : 235 + prg * 20))
+      p5.fill(26, 23, 11, sp === "MESSAGE" ? prg * 230 : (sp === "DELAY" ? 230 : 230 + prg * 25))
       p5.rect(200, 300, 400, sp === "MESSAGE" ? prg * 150 : (sp === "DELAY" ? 150 : 150 + prg * 450))
       customFont.render(
         gp.gameOverMessage === "NO_PIECES" ? "no more pieces" : "out of space",
@@ -523,7 +523,7 @@ export default class Render {
       p5.scale(1 + calculatedPrg * 0.4)
 
       // outline behind
-      const colorValue = p5.lerpColor(p5.color(200), p5.color(255, 255, 0), calculatedPrg)
+      const colorValue = p5.lerpColor(this.getSqColor(1), this.getSqColor(2), calculatedPrg)
       p5.stroke(colorValue)
       p5.noFill()
       p5.strokeWeight(10)
@@ -536,7 +536,7 @@ export default class Render {
 
       // front filling
       p5.noStroke()
-      p5.fill(0)
+      p5.fill(26, 23, 11)
       p5.circle(0, 0, 150)
       let speed = 2 + calculatedPrg * 8
       for (let i = endModal.particles.length - 1; i >= 0; i--) {
@@ -551,7 +551,7 @@ export default class Render {
 
       // score
       const textWidth = customFont.render(endModal.score + "", -1000, 0, 36, p5.color(0, 0), p5)
-      customFont.render(endModal.score + "", -textWidth / 2, 20, 36, p5.color(255, 255, 0), p5)
+      customFont.render(endModal.score + "", -textWidth / 2, 20, 36, this.getSqColor(2), p5)
 
       // passively spawn circles, spawn rate scaled with score??
       if (p5.frameCount % (2 - (endModal.prg < 1 ? 1 : 0)) === 0) {
@@ -587,6 +587,7 @@ export default class Render {
 
       // render replay button
       if (endModal.score === gp.goldPoints && endModal.subphase === "RATING") {
+        p5.noStroke()
         this.renderBtn("play again", 18, -82, 9, this.btnPrgs.replay, 200, 540, 200, 50, 0)
         this.btnPrgs.replay = Math.min(1, this.btnPrgs.replay + 0.14)
         const { mx, my } = this.gc
@@ -600,12 +601,32 @@ export default class Render {
 
   renderHelpModal() {
     const { p5, helpModal } = this
-    p5.noStroke()
-    p5.fill(0, 0, 0, 240)
-    p5.rect(200, 250, 400, 170)
+    const y = helpModal.prevY + (1 - Math.pow(1 - helpModal.prg, 3)) * (helpModal.targetY - helpModal.prevY)
 
-    p5.image(this.gc.helpImages[p5.frameCount % 5], 200, 220, 400, 120)
-    /// other hint drawings based on index
+    p5.stroke(this.getSqColor(1))
+    p5.strokeWeight(3)
+    p5.fill(26, 23, 11, 220)
+    p5.rect(200, y, 420, 170)
+
+    p5.image(this.gc.helpImages[helpModal.index], 200, y - 30, 400, 120)
+    // hint drawings based on index
+    switch (helpModal.index) {
+      case 0:
+        break
+      case 1:
+        break
+      case 2:
+        break
+      case 3:
+        break
+      case 4:
+        break
+    }
+    // next btn
+    p5.noStroke()
+    this.renderBtn(Math.random() > 0.5 ? "next" : "done", 18, -32, 9, this.btnPrgs.next, 200, y + 55, 140, 35, 0)
+    // update prg
+    helpModal.prg = Math.min(1, helpModal.prg + 0.05)
   }
 
   draw() {
@@ -618,7 +639,10 @@ export default class Render {
       return
     }
 
-    p5.background(30)
+    const goldenColor = this.getSqColor(2)
+    const normalColor = this.getSqColor(1)
+
+    p5.background(26, 23, 11)
     p5.noStroke()
     this.renderButtons()
     this.renderGrid()
@@ -636,12 +660,12 @@ export default class Render {
       p5.push()
       p5.translate(50, 350)
       p5.rotate(_30deg)
-      customFont.render("click: place", 0, 0, 12, p5.color(250), p5)
+      customFont.render("click: place", 0, 0, 12, normalColor, p5)
       p5.pop()
       p5.push()
       p5.translate(260, 400)
       p5.rotate(-_30deg)
-      customFont.render("r: rotate\ns: switch", 0, 0, 12, p5.color(250), p5)
+      customFont.render("r: rotate\ns: switch", 0, 0, 12, normalColor, p5)
       p5.pop()
     }
 
@@ -743,7 +767,7 @@ export default class Render {
 
 
     // render next pieces
-    p5.stroke(0)
+    p5.stroke(normalColor)
     p5.strokeWeight(2)
     for (let i = 0; i < 2; i++) {
       const piece = gp.nextPieces[i]
@@ -753,7 +777,7 @@ export default class Render {
       const { sqsCoors, hIndex } = this.getPieceImageData(piece)
       for (let si = 0; si < sqsCoors.length; si++) {
         const coor = sqsCoors[si]
-        if (hIndex === si) { p5.fill("yellow") } else { p5.fill(140) }
+        if (hIndex === si) { p5.fill(goldenColor) } else { p5.fill(normalColor) }
         p5.square(coor[1] * 18 + 350, coor[0] * 18 + 460 + i * 60 + yOffset, 18)
       }
     }
@@ -768,10 +792,10 @@ export default class Render {
       for (let si = 0; si < sqsCoors.length; si++) {
         const coor = sqsCoors[si]
         if (hIndex === si) {
-          if (gp.useGold) { p5.fill("yellow") }
-          else { p5.fill(240, 38, 216) }
+          if (gp.useGold) { p5.fill(goldenColor) }
+          else { p5.fill(this.getSqColor(3)) }
         }
-        else { p5.fill(140) }
+        else { p5.fill(normalColor) }
         p5.square(
           coor[1] * squareSize + 200 + (150 * prg),
           coor[0] * squareSize + 475 + (-15 * prg),
@@ -783,7 +807,7 @@ export default class Render {
 
     // render PLACE, SPREAD, CLEAR animations
     if (gp.phase !== "PLAY") {
-      p5.stroke(0)
+      p5.stroke(normalColor)
       p5.strokeWeight(4)
       let colorValue: P5.Color = p5.color(0)
       const { animatedSpreadingSqs, animatedClearingSqs, GRID_VERTICES } = this
@@ -840,11 +864,11 @@ export default class Render {
         if (this.isThePlacingSquare(assq.id)) { continue }
 
         if (assq.prg < 0) {
-          colorValue = this.getSqColor(1)
+          colorValue = normalColor
         } else if (assq.prg < 1) {
           colorValue = p5.color(250)
         } else {
-          colorValue = this.getSqColor(2)
+          colorValue = goldenColor
         }
 
         p5.fill(colorValue)
@@ -878,7 +902,7 @@ export default class Render {
           const offX = cos(enterDeg) * calculatedPrg * 300
           const offY = sin(enterDeg) * calculatedPrg * 300
 
-          p5.stroke(0)
+          p5.stroke(normalColor)
           p5.strokeWeight(4)
           // for each square
           for (let i = 0; i < 4; i++) {
@@ -988,13 +1012,14 @@ export default class Render {
     }
 
     // render gold points
-    p5.noStroke()
-    p5.fill(255, 255, 0)
-    p5.square(25, 475, 16, 5)
-    customFont.render(gp.goldPoints + "", 43, 487, 26, p5.color(255, 255, 0), p5)
+    p5.stroke(normalColor)
+    p5.strokeWeight(3)
+    p5.fill(goldenColor)
+    p5.square(25, 475, 16)
+    customFont.render(gp.goldPoints + "", 43, 487, 26, p5.color(245, 228, 44), p5)
 
     // render remaining num
-    customFont.render(gp.remainingPieces + " left", 20, 518, 15, p5.color(200), p5)
+    customFont.render(gp.remainingPieces + " left", 20, 518, 15, normalColor, p5)
 
     // render golden lasers
     const LASER_SPEED = this.CONSTS.LASER_SPEED
@@ -1028,10 +1053,10 @@ export default class Render {
         }
       }
 
-      p5.stroke(0, 0, 0)
+      p5.stroke(normalColor)
       p5.strokeWeight(10)
       p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
-      p5.stroke(247, 255, 23)
+      p5.stroke(245, 228, 44)
       p5.strokeWeight(5)
       p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
     }
@@ -1091,8 +1116,8 @@ export default class Render {
         this.btnPrgs.help = 0
         this.hintAtHelp = false
         this.helpModal.isOpened = true
-        this.helpModal.y = -100
-        this.helpModal.targetY = 250
+        this.helpModal.prevY = -100
+        this.helpModal.targetY = 180
         this.helpModal.index = 0
         this.helpModal.prg = 0
         return
