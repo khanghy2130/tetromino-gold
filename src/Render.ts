@@ -53,7 +53,13 @@ export default class Render {
     replay: 1
   }
   hoveredBtn: null | "REPLAY" | "HELP" | "TOUCHSCREEN" | "PLACE" | "ROTATE" | "SWITCH" = null
+
   hintAtHelp: boolean = true
+  helpModal: {
+    isOpened: boolean, index: number, targetY: number, y: number, prg: number
+  } = {
+      isOpened: false, index: 0, targetY: 0, y: -100, prg: 0
+    }
 
   animatedPlacingSqs: APS[] = []
   highestSnapsCount: number = 0
@@ -358,6 +364,12 @@ export default class Render {
     }
 
     if (this.gameplay.phase === "END") { return } // blocked on end phase
+    // help modal
+    if (this.helpModal.isOpened) {
+      /// next btn & hover
+      return
+    }
+
     if (this.touchscreenOn) {
       if (this.pointInRotRect(mx, my, 105, 385, 150, 35, true)) {
         return this.hoveredBtn = "PLACE"
@@ -584,6 +596,16 @@ export default class Render {
         }
       }
     }
+  }
+
+  renderHelpModal() {
+    const { p5, helpModal } = this
+    p5.noStroke()
+    p5.fill(0, 0, 0, 240)
+    p5.rect(200, 250, 400, 170)
+
+    p5.image(this.gc.helpImages[p5.frameCount % 5], 200, 220, 400, 120)
+    /// other hint drawings based on index
   }
 
   draw() {
@@ -958,6 +980,7 @@ export default class Render {
           if (gp.gameOverMessage !== null) {
             gp.phase = "END"
             gp.ug = 0
+            this.helpModal.isOpened = false
           }
           else { gp.phase = "PLAY" }
         }
@@ -1027,6 +1050,8 @@ export default class Render {
       p5.pop()
     }
 
+    if (this.helpModal.isOpened) { this.renderHelpModal() }
+
     // end phase (MESSAGE), wait until no more laser
     if (gp.phase === "END" && this.goldenLasers.length === 0) {
       if (gp.ug < 1) {
@@ -1064,7 +1089,12 @@ export default class Render {
     switch (this.hoveredBtn) {
       case "HELP":
         this.btnPrgs.help = 0
-        console.log("help")
+        this.hintAtHelp = false
+        this.helpModal.isOpened = true
+        this.helpModal.y = -100
+        this.helpModal.targetY = 250
+        this.helpModal.index = 0
+        this.helpModal.prg = 0
         return
       case "TOUCHSCREEN":
         this.btnPrgs.touchscreen = 0
@@ -1096,9 +1126,6 @@ export default class Render {
     if (this.p5.keyCode === 83) {
       this.btnPrgs.switch = 0
       this.gameplay.switchType()
-    }
-    if (this.p5.keyCode === 32) {
-      this.gameplay.shiftPiecesInventory()////////
     }
   }
 }
