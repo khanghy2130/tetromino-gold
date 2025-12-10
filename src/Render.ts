@@ -87,13 +87,17 @@ export default class Render {
     score: number,
     rating: number,
     prg: number,
-    particles: Particle[]
+    particles: Particle[],
+    img: P5.Image | null,
+    imgPrg: number
   } = {
       subphase: "MESSAGE",
       score: 0,
       rating: 0,
       prg: 1,
-      particles: []
+      particles: [],
+      img: null,
+      imgPrg: 0
     }
 
   input: {
@@ -1094,6 +1098,13 @@ export default class Render {
       }
       this.renderEndModal()
     }
+
+    // animate end phase image
+    if (endModal.img) {
+      p5.image(endModal.img, 200 + endModal.imgPrg * 400, 300, 400, 600)
+      endModal.imgPrg = Math.min(1, endModal.imgPrg + 0.1)
+      if (endModal.imgPrg >= 1) { endModal.img = null }
+    }
   }
 
   click() {
@@ -1101,7 +1112,11 @@ export default class Render {
 
     if (gp.phase === "END") {
       // check restart btn
-      if (this.hoveredBtn === "REPLAY") { gp.setUpNewGame() }
+      if (this.hoveredBtn === "REPLAY") {
+        gp.setUpNewGame()
+        const p5 = this.p5
+        this.endModal.img = p5.get(0, 0, p5.width, p5.height)
+      }
       return
     }
 

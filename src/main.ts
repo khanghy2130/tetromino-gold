@@ -82,7 +82,7 @@ export default class GameClient {
 				for (let i = 0; i < 5; i++) {
 					this.helpImages.push(p5.get(0, h * i, p5.width, h))
 				}
-
+				p5.background(0)
 				p5.pop()
 			}
 
@@ -107,6 +107,7 @@ export default class GameClient {
 				p5.angleMode(p5.RADIANS)
 				p5.strokeJoin(p5.ROUND)
 				p5.frameRate(30)
+				p5.pixelDensity(1)
 
 				createHelpImages()
 

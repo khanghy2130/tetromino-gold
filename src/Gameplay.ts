@@ -77,7 +77,9 @@ export default class Gameplay {
       score: 0,
       rating: 0,
       prg: 1,
-      particles: []
+      particles: [],
+      img: null,
+      imgPrg: 0
     }
     this.phase = "CLEAR"
 
