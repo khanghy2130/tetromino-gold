@@ -36,15 +36,9 @@ export default class GameClient {
 				p5.scale(p5.width / 400)
 				p5.clear() /// KA background(0,0);
 
-				// p5.stroke(255)
-				// for (let i = 1; i < 6; i++) {
-				// 	const y = i * 120
-				// 	p5.line(0, y, p5.width, y)
-				// }
-
 				// highlight rects
 				p5.noStroke()
-				p5.fill(180, 140, 0)
+				p5.fill(130, 118, 60)
 				p5.rect(182, 39, 140, 22)
 				p5.rect(133, 60, 128, 22)
 				p5.rect(65, 81, 110, 22)
@@ -107,7 +101,6 @@ export default class GameClient {
 				p5.angleMode(p5.RADIANS)
 				p5.strokeJoin(p5.ROUND)
 				p5.frameRate(30)
-				p5.pixelDensity(1)
 
 				createHelpImages()
 

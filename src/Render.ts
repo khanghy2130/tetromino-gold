@@ -53,13 +53,13 @@ export default class Render {
     switch: 1,
     replay: 1
   }
-  hoveredBtn: null | "REPLAY" | "HELP" | "TOUCHSCREEN" | "PLACE" | "ROTATE" | "SWITCH" = null
+  hoveredBtn: null | "REPLAY" | "HELP" | "NEXT" | "TOUCHSCREEN" | "PLACE" | "ROTATE" | "SWITCH" = null
 
   hintAtHelp: boolean = true
   helpModal: {
     isOpened: boolean, index: number, targetY: number, prevY: number, prg: number
   } = {
-      isOpened: false, index: 0, targetY: 0, prevY: -100, prg: 0
+      isOpened: false, index: 0, targetY: 0, prevY: -100, prg: 1
     }
 
   animatedPlacingSqs: APS[] = []
@@ -367,12 +367,7 @@ export default class Render {
       }
     }
 
-    if (this.gameplay.phase === "END") { return } // blocked on end phase
-    // help modal
-    if (this.helpModal.isOpened) {
-      /// next btn & hover
-      return
-    }
+    if (this.gameplay.phase === "END" || this.helpModal.isOpened) { return } // blocked on end phase & when showing help
 
     if (this.touchscreenOn) {
       if (this.pointInRotRect(mx, my, 105, 385, 150, 35, true)) {
@@ -517,7 +512,7 @@ export default class Render {
     if (sp === "PRE-RATING" || sp === "RATING") {
       const RATINGS = this.RATINGS
       const offX = sp === "RATING" ? 400 : (1 - Math.pow(1 - gp.ug, 3)) * 400
-      endModal.prg = Math.min(1, endModal.prg + 0.05)
+      endModal.prg = Math.min(1, endModal.prg + 0.1)
 
       // max rating? stay at 0.5 prg
       if (endModal.rating === RATINGS.length - 1 && endModal.prg > 0.5) { endModal.prg = 0.5 }
@@ -597,6 +592,7 @@ export default class Render {
         const { mx, my } = this.gc
         this.hoveredBtn = null // reset
         if (mx > 100 && mx < 300 && my > 515 && my < 565) {
+          if (!this.touchscreenOn) { p5.cursor(p5.HAND) }
           this.hoveredBtn = "REPLAY"
         }
       }
@@ -605,30 +601,75 @@ export default class Render {
 
   renderHelpModal() {
     const { p5, helpModal } = this
+    if (!helpModal.isOpened && helpModal.prg === 1) { return }
     const y = helpModal.prevY + (1 - Math.pow(1 - helpModal.prg, 3)) * (helpModal.targetY - helpModal.prevY)
+
+    // hint drawings based on index
+    p5.stroke(255)
+    p5.strokeWeight(6)
+    const yOff = Math.cos(p5.frameCount * 0.2) * 5
+    switch (helpModal.index) {
+      case 0:
+        p5.line(35, 540 + yOff, 35, 580 + yOff)
+        p5.line(35, 540 + yOff, 45, 550 + yOff)
+        p5.line(35, 540 + yOff, 25, 550 + yOff)
+        break
+      case 1:
+        p5.line(55, 430 + yOff, 55, 380 + yOff)
+        p5.line(55, 430 + yOff, 65, 420 + yOff)
+        p5.line(55, 430 + yOff, 45, 420 + yOff)
+
+        p5.line(200, 430 + yOff, 200, 380 + yOff)
+        p5.line(200, 430 + yOff, 210, 420 + yOff)
+        p5.line(200, 430 + yOff, 190, 420 + yOff)
+
+        p5.line(345, 430 + yOff, 345, 380 + yOff)
+        p5.line(345, 430 + yOff, 335, 420 + yOff)
+        p5.line(345, 430 + yOff, 355, 420 + yOff)
+        break
+      case 2:
+        const total = Math.floor(p5.frameCount * 0.05) % 9
+        const i = Math.floor(total / 3)
+        const r = total % 3
+        const ni = i === 2 ? 0 : i + 1
+        const sids: SquareID[] = [
+          [i, 2, r], [i, 1, r], [i, 0, r],
+          [ni, r, 0], [ni, r, 1], [ni, r, 2],
+        ]
+        const faces = this.GRID_VERTICES.faces
+        p5.noStroke()
+        for (let s = 0; s < sids.length; s++) {
+          const sid = sids[s]
+          const sqVerts: PositionType[] = faces[sid[0]][sid[1]][sid[2]]
+          p5.fill(230)
+          p5.beginShape()
+          for (let sv = 0; sv < sqVerts.length; sv++) {
+            p5.vertex(sqVerts[sv][0], sqVerts[sv][1])
+          }
+          p5.endShape(p5.CLOSE)
+        }
+        break
+      case 3:
+        p5.line(200, 520 + yOff, 200, 400 + yOff)
+        p5.line(200, 520 + yOff, 220, 500 + yOff)
+        p5.line(200, 520 + yOff, 180, 500 + yOff)
+        break
+    }
 
     p5.stroke(this.getSqColor(1))
     p5.strokeWeight(3)
     p5.fill(26, 23, 11, 220)
     p5.rect(200, y, 420, 170)
-
     p5.image(this.gc.helpImages[helpModal.index], 200, y - 30, 400, 120)
-    // hint drawings based on index
-    switch (helpModal.index) {
-      case 0:
-        break
-      case 1:
-        break
-      case 2:
-        break
-      case 3:
-        break
-      case 4:
-        break
-    }
     // next btn
     p5.noStroke()
-    this.renderBtn(Math.random() > 0.5 ? "next" : "done", 18, -32, 9, this.btnPrgs.next, 200, y + 55, 140, 35, 0)
+    this.renderBtn(helpModal.index === 4 ? "done" : "next", 18, -32, 9, this.btnPrgs.next, 200, y + 50, 140, 35, 0)
+    const { mx, my } = this.gc
+    if (mx > 130 && mx < 270 && my > y + 50 - 18 && my < y + 50 + 18) {
+      p5.cursor(p5.HAND)
+      this.hoveredBtn = "NEXT"
+    }
+
     // update prg
     helpModal.prg = Math.min(1, helpModal.prg + 0.05)
   }
@@ -1072,14 +1113,14 @@ export default class Render {
       p5.push()
       p5.translate(50, 30)
       p5.rotate(-1.2)
-      const yOff = Math.cos(p5.frameCount * 0.3) * 7
-      p5.line(0, 20 + yOff, 0, -20 + yOff)
+      const yOff = Math.cos(p5.frameCount * 0.2) * 7
+      p5.line(0, 20 + yOff, 0, -25 + yOff)
       p5.line(0, 20 + yOff, 10, 5 + yOff)
       p5.line(0, 20 + yOff, -10, 5 + yOff)
       p5.pop()
     }
 
-    if (this.helpModal.isOpened) { this.renderHelpModal() }
+    this.renderHelpModal()
 
     // end phase (MESSAGE), wait until no more laser
     if (gp.phase === "END" && this.goldenLasers.length === 0) {
@@ -1120,7 +1161,41 @@ export default class Render {
       return
     }
 
-    // mouse control?
+    if (this.helpModal.isOpened) {
+      const hm = this.helpModal
+      // check next btn
+      if (this.hoveredBtn === "NEXT") {
+        this.btnPrgs.next = 0
+        hm.prg = 0
+        hm.prevY = hm.targetY
+
+        // set next targetY
+        switch (hm.index) {
+          case 0:
+            hm.targetY = 150
+            break
+          case 1:
+            hm.targetY = 500
+            break
+          case 2:
+            hm.targetY = 180
+            break
+          case 3:
+            hm.targetY = 230
+            break
+          case 4:
+            hm.targetY = -100
+            break
+        }
+
+        // last index?
+        if (hm.index === 4) { hm.isOpened = false }
+        else { hm.index++ }
+      }
+      return
+    }
+
+    // mouse control: place piece
     if (!this.touchscreenOn) {
       // place piece if hovering on a square
       if (this.input.hoveredSquare) { return gp.placePiece() }
@@ -1132,7 +1207,7 @@ export default class Render {
         this.hintAtHelp = false
         this.helpModal.isOpened = true
         this.helpModal.prevY = -100
-        this.helpModal.targetY = 180
+        this.helpModal.targetY = 230
         this.helpModal.index = 0
         this.helpModal.prg = 0
         return
