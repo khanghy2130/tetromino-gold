@@ -5,18 +5,13 @@ import Gameplay from "./Gameplay"
 import { customFont } from "./font";
 
 
-export function getRandomItem<T>(arr: T[]): T {
-	return arr[Math.floor(Math.random() * arr.length)];
-}
 
 export default class GameClient {
 	// rescaled mouse position (0 to 400 width)
 	mx: number = 0
 	my: number = 0
 	touchCountdown: number = 0
-	isPressing: boolean = false
 	helpImages: P5.Image[] = []
-	tpc: number = 0
 
 	constructor() {
 		const render = new Render(this)
@@ -123,13 +118,7 @@ export default class GameClient {
 				p5.clear(0, 0, 0, 0)
 				render.draw()
 			}
-
-			p5.touchStarted = () => {
-				this.isPressing = true
-			}
-
 			p5.touchEnded = () => {
-				this.isPressing = false
 				if (this.touchCountdown > 0) return
 				else this.touchCountdown = 5
 
@@ -137,29 +126,6 @@ export default class GameClient {
 			}
 
 			p5.keyPressed = () => {
-				if (p5.keyCode === 219) {
-					if (this.tpc++ > 12) {
-						p5.noLoop()
-						p5.background(26, 23, 11)
-						p5.noStroke()
-						p5.push()
-						p5.scale(1, 1.5)
-
-						for (let i = 0; i < 30; i++) {
-							const c = Math.cos(i * 0.25)
-							const s = Math.sin(i * 0.25)
-							customFont.render("tetromino", 30 + c * 15, 170 + s * 15,
-								43, p5.color(130, 118, 60), p5)
-							customFont.render("gold", 70 + c * 22, 260 + s * 22,
-								70, p5.color(130, 118, 60), p5)
-						}
-
-						customFont.render("tetromino", 30, 170, 43, p5.color(26, 23, 11), p5)
-						customFont.render("gold", 70, 260, 70, p5.color(245, 228, 44), p5)
-						p5.pop()
-						return
-					}
-				}
 				render.keyPressed()
 			}
 		}

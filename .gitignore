@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 convert.js
+convert.ts
+convert2.ts

@@ -234,7 +234,7 @@ export default class Render {
       for (let r = 0; r < rows.length; r++) {
         const sqs = rows[r]
         for (let rr = 0; rr < sqs.length; rr++) {
-          if (this.isPointInParallelogram([this.gc.mx, this.gc.my], sqs[rr])) {
+          if (this.isPointInParallelogram(mousePos, sqs[rr])) {
             return [faceIndex, r, rr]
           }
         }
@@ -350,6 +350,7 @@ export default class Render {
     // top left button
     this.renderBtn("help", 20, -35, 10, this.btnPrgs.help, 105, 55, 150, 35, -_30deg)
     // top right button
+    this.p5.noStroke()
     this.renderBtn("mobile: " + (this.touchscreenOn ? "on" : "off"), 14, -62, 7, this.btnPrgs.touchscreen, 295, 55, 150, 35, _30deg)
     // switch btn
     this.renderBtn("switch", 18, -46, 9, this.btnPrgs.switch, 200, 560, 150, 35, 0)

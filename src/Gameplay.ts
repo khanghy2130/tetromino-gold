@@ -1,4 +1,4 @@
-import GameClient, { getRandomItem } from "./main"
+import GameClient from "./main"
 import Render, { APS, APSSnap, PositionType, SquareID } from "./Render"
 
 type MakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
@@ -54,15 +54,19 @@ export default class Gameplay {
     this.gc = gameClient
   }
 
+  getRandomItem<T>(arr: T[]): T {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
   getNewPiece(): OriginalPiece {
     // make sure new piece is not the same type as last one
-    let sqList: sqDirs[] = getRandomItem(this.RAW_PIECES)
+    let sqList: sqDirs[] = this.getRandomItem(this.RAW_PIECES)
     while (sqList === this.nextPieces[0]?.sqList) {
-      sqList = getRandomItem(this.RAW_PIECES)
+      sqList = this.getRandomItem(this.RAW_PIECES)
     }
     return {
       sqList: sqList,
-      goldenSqIndex: getRandomItem([0, 1, 2, "CENTER"])
+      goldenSqIndex: this.getRandomItem([0, 1, 2, "CENTER"])
     }
   }
 
