@@ -10,7 +10,11 @@ export type OriginalPiece = {
   goldenSqIndex: number | "CENTER" // index of square
 }
 
-export type ClearableSquare = { id: SquareID, prevState: SquareData, prg: number }
+export type ClearableSquare = {
+  id: SquareID
+  prevState: SquareData
+  prg: number
+}
 
 type CurrentPiece = {
   op: OriginalPiece
@@ -23,6 +27,12 @@ export type sqDirs = ("U" | "D" | "L" | "R")[] // for one square in a piece
 export default class Gameplay {
   gc: GameClient
   render!: Render
+
+  trainingData: {
+    isReady: boolean
+  } = {
+    isReady: false, // false if needing new data
+  }
 
   RAW_PIECES: sqDirs[][] = [
     // not include center square
@@ -49,29 +59,31 @@ export default class Gameplay {
   gameOverMessage: "NO_PIECES" | "NO_SPACE" | null = null // null is not game over yet
   lastHoveredFaceIndex: 0 | 1 | 2 = 1 // second face is default
 
-
   constructor(gameClient: GameClient) {
     this.gc = gameClient
   }
 
   getRandomItem<T>(arr: T[]): T {
-    return arr[Math.floor(Math.random() * arr.length)];
+    return arr[Math.floor(Math.random() * arr.length)]
   }
 
   getNewPiece(): OriginalPiece {
     // make sure new piece is not the same type as last one
-    let sqList: sqDirs[] = this.getRandomItem(this.RAW_PIECES)
-    while (sqList === this.nextPieces[0]?.sqList) {
-      sqList = this.getRandomItem(this.RAW_PIECES)
-    }
+    let sqList: sqDirs[] = this.RAW_PIECES[6]
+    // let sqList: sqDirs[] = this.getRandomItem(this.RAW_PIECES)
+    // while (sqList === this.nextPieces[0]?.sqList) {
+    //   sqList = this.getRandomItem(this.RAW_PIECES)
+    // }
     return {
       sqList: sqList,
-      goldenSqIndex: this.getRandomItem([0, 1, 2, "CENTER"])
+      goldenSqIndex: this.getRandomItem([0, 1, 2, "CENTER"]),
     }
   }
 
   setUpNewGame() {
     // reset
+    this.trainingData.isReady = false
+    this.render.globalHoveredSq = null
     this.remainingPieces = 30
     this.goldPoints = 0
     this.currentPiece = null
@@ -83,7 +95,7 @@ export default class Gameplay {
       prg: 1,
       particles: [],
       img: null,
-      imgPrg: 0
+      imgPrg: 0,
     }
     this.phase = "CLEAR"
 
@@ -93,9 +105,7 @@ export default class Gameplay {
 
     // empty board data
     this.boardData = Array.from({ length: 3 }, () =>
-      Array.from({ length: 3 }, () =>
-        Array.from({ length: 3 }, () => 0)
-      )
+      Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => 0)),
     )
 
     // set up clearable sqs
@@ -106,19 +116,18 @@ export default class Gameplay {
           clearableSqs.push({
             id: [i, y, x],
             prevState: 1,
-            prg: (x + y * 3 + i * 9) * -0.15
+            prg: 1,
           })
         }
       }
     }
-    this.render.animatedClearingSqs = clearableSqs
+    // this.render.animatedClearingSqs = clearableSqs
   }
-
 
   // called after modifying remainingPieces
   shiftPiecesInventory() {
     this.lastHoveredFaceIndex = 1 // reset
-    this.render.piecesMovementPrg = 0
+    this.render.piecesMovementPrg = 1
 
     // set currentPiece to the next one
     const nextPiece = this.nextPieces[0]
@@ -128,8 +137,8 @@ export default class Gameplay {
     } else {
       this.currentPiece = {
         op: nextPiece,
-        sqList: nextPiece.sqList.map(item => item.slice()),
-        hoveredSq: null
+        sqList: nextPiece.sqList.map((item) => item.slice()),
+        hoveredSq: null,
       }
       this.useGold = true
     }
@@ -144,11 +153,15 @@ export default class Gameplay {
     const DIRS: sqDirs[number][] = ["U", "R", "D", "L"]
     if (clockwise) {
       let i = DIRS.indexOf(d) + 1
-      if (i > 3) { i = 0 }
+      if (i > 3) {
+        i = 0
+      }
       return DIRS[i]
     } else {
       let i = DIRS.indexOf(d) - 1
-      if (i < 0) { i = 3 }
+      if (i < 0) {
+        i = 3
+      }
       return DIRS[i]
     }
   }
@@ -160,23 +173,31 @@ export default class Gameplay {
   }
 
   rotateSqList(sqList: sqDirs[], clockwise: boolean): sqDirs[] {
-    return sqList.map(
-      sq => sq.map(d => this.getRotatedDir(d, clockwise))
-    )
+    return sqList.map((sq) => sq.map((d) => this.getRotatedDir(d, clockwise)))
   }
 
   getAdjacentSqIDs(sid: SquareID): SquareID[] {
     const asids: SquareID[] = []
     // top
-    if (sid[1] < 2) { asids.push([sid[0], sid[1] + 1, sid[2]]) }
+    if (sid[1] < 2) {
+      asids.push([sid[0], sid[1] + 1, sid[2]])
+    }
     // right
-    if (sid[2] < 2) { asids.push([sid[0], sid[1], sid[2] + 1]) }
+    if (sid[2] < 2) {
+      asids.push([sid[0], sid[1], sid[2] + 1])
+    }
     // down
-    if (sid[1] > 0) { asids.push([sid[0], sid[1] - 1, sid[2]]) }
-    else { asids.push([sid[0] === 2 ? 0 : sid[0] + 1, sid[2], 0]) }
+    if (sid[1] > 0) {
+      asids.push([sid[0], sid[1] - 1, sid[2]])
+    } else {
+      asids.push([sid[0] === 2 ? 0 : sid[0] + 1, sid[2], 0])
+    }
     // left
-    if (sid[2] > 0) { asids.push([sid[0], sid[1], sid[2] - 1]) }
-    else { asids.push([sid[0] === 0 ? 2 : sid[0] - 1, 0, sid[1]]) }
+    if (sid[2] > 0) {
+      asids.push([sid[0], sid[1], sid[2] - 1])
+    } else {
+      asids.push([sid[0] === 0 ? 2 : sid[0] - 1, 0, sid[1]])
+    }
 
     return asids
   }
@@ -192,7 +213,9 @@ export default class Gameplay {
     for (let i = 0; i < csqs.length; i++) {
       const csq = csqs[i]
       if (csq.isGolden) {
-        if (bd[csq.id[0]][csq.id[1]][csq.id[2]] === 3) { destroyerID = csq.id }
+        if (bd[csq.id[0]][csq.id[1]][csq.id[2]] === 3) {
+          destroyerID = csq.id
+        }
         break
       }
     }
@@ -215,8 +238,12 @@ export default class Gameplay {
 
       for (let r = 0; r < 3; r++) {
         const sids: SquareID[] = [
-          [i, 2, r], [i, 1, r], [i, 0, r],
-          [ni, r, 0], [ni, r, 1], [ni, r, 2],
+          [i, 2, r],
+          [i, 1, r],
+          [i, 0, r],
+          [ni, r, 0],
+          [ni, r, 1],
+          [ni, r, 2],
         ]
         // check isClearable
         let isClearable = true
@@ -234,7 +261,9 @@ export default class Gameplay {
             // already added? continue
             for (let ci = 0; ci < sqs.length; ci++) {
               const cid = sqs[ci].id
-              if (cid[0] === sid[0] && cid[1] === sid[1] && cid[2] === sid[2]) { continue outer }
+              if (cid[0] === sid[0] && cid[1] === sid[1] && cid[2] === sid[2]) {
+                continue outer
+              }
             }
             const sqData = bd[sid[0]][sid[1]][sid[2]]
             sqs.push({ id: sid, prevState: sqData })
@@ -245,13 +274,15 @@ export default class Gameplay {
 
     // add .prg
     for (let i = 0; i < sqs.length; i++) {
-      sqs[i].prg = -0.1 - i * 0.1 // delay between clearing squares
+      sqs[i].prg = 1
     }
     return sqs as ClearableSquare[]
   }
 
   hasPossiblePlacement(): boolean {
-    if (!this.currentPiece) { return true }
+    if (!this.currentPiece) {
+      return true
+    }
     const getSteppedSqID = this.render.getSteppedSqID.bind(this.render)
 
     // for each empty sq
@@ -259,7 +290,9 @@ export default class Gameplay {
       for (let y = 0; y < 3; y++) {
         for (let x = 0; x < 3; x++) {
           const sd = this.boardData[i][y][x]
-          if (sd !== 0) { continue } // skip not empty pos
+          if (sd !== 0) {
+            continue
+          } // skip not empty pos
 
           let sqList = this.currentPiece.sqList
           // for each of 4 rotations
@@ -269,8 +302,10 @@ export default class Gameplay {
             for (let sli = 0; sli < 3; sli++) {
               const id = getSteppedSqID(sqList[sli], [i, y, x])
               oPieceCheckSids.push(id)
-              // out of bound || this pos is occupied? 
-              if (id === null || this.boardData[id[0]][id[1]][id[2]] !== 0) { continue loop1 }
+              // out of bound || this pos is occupied?
+              if (id === null || this.boardData[id[0]][id[1]][id[2]] !== 0) {
+                continue loop1
+              }
             }
 
             // special check for O-piece
@@ -278,9 +313,13 @@ export default class Gameplay {
               const facesList: number[] = [i] // including unlisted square face (center)
               for (let si = 0; si < oPieceCheckSids.length; si++) {
                 const sid = oPieceCheckSids[si]
-                if (sid && !facesList.includes(sid[0])) { facesList.push(sid[0]) }
+                if (sid && !facesList.includes(sid[0])) {
+                  facesList.push(sid[0])
+                }
               }
-              if (facesList.length === 3) { continue loop1 } // overlap self
+              if (facesList.length === 3) {
+                continue loop1
+              } // overlap self
             }
 
             return true // if reach here then is placeable
@@ -291,17 +330,156 @@ export default class Gameplay {
     return false
   }
 
+  sendTrainingData(): void {
+    if (!this.currentPiece) {
+      return
+    }
+    if (this.trainingData.isReady) {
+      return
+    }
+    const getSteppedSqID = this.render.getSteppedSqID.bind(this.render)
+
+    this.trainingData.isReady = true
+    const pms: (0 | 1)[] = []
+
+    // for each empty sq
+    for (let i = 0; i < 3; i++) {
+      for (let y = 0; y < 3; y++) {
+        for (let x = 0; x < 3; x++) {
+          // FOR EACH square on board
+          const sd = this.boardData[i][y][x]
+          const sqID: SquareID = [i, y, x]
+
+          // occupied? add 4 empty moves
+          if (sd !== 0) {
+            pms.push(0)
+            pms.push(0)
+            pms.push(0)
+            pms.push(0)
+            continue
+          }
+
+          let sqList = this.currentPiece.sqList
+          // for each of 4 rotations
+          loop1: for (let r = 0; r < 4; r++) {
+            if (r > 0) {
+              sqList = this.rotateSqList(sqList, true)
+            }
+            const oPieceCheckSids: (SquareID | null)[] = []
+            for (let sli = 0; sli < 3; sli++) {
+              const id = getSteppedSqID(sqList[sli], sqID)
+              oPieceCheckSids.push(id)
+              // out of bound || this pos is occupied? add an empty move
+              if (id === null || this.boardData[id[0]][id[1]][id[2]] !== 0) {
+                pms.push(0)
+                continue loop1
+              }
+            }
+
+            // special check for O-piece
+            if (this.currentPiece.op.sqList === this.RAW_PIECES[6]) {
+              const facesList: number[] = [i] // including unlisted square face (center)
+              for (let si = 0; si < oPieceCheckSids.length; si++) {
+                const sid = oPieceCheckSids[si]
+                if (sid && !facesList.includes(sid[0])) {
+                  facesList.push(sid[0])
+                }
+              }
+              if (facesList.length === 3) {
+                pms.push(0)
+                continue loop1
+              }
+            }
+
+            pms.push(1) //is placeable
+          }
+        }
+      }
+    }
+
+    const fullData: number[] = []
+
+    // possible moves
+    fullData.push(...pms.flat(Infinity))
+
+    // score & turns left
+    fullData.push(this.goldPoints / 120)
+    fullData.push(this.remainingPieces / 30)
+
+    // @ts-ignore
+    fullData.push(...this.boardData.flat(Infinity)) // board
+
+    // 3 pieces
+    if (true) {
+      const op = this.currentPiece.op
+      fullData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
+      fullData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
+    }
+    if (this.nextPieces[0]) {
+      const op = this.nextPieces[0]
+      fullData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
+      fullData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
+    } else {
+      fullData.push(0)
+      fullData.push(0)
+    }
+    if (this.nextPieces[1]) {
+      const op = this.nextPieces[1]
+      fullData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
+      fullData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
+    } else {
+      fullData.push(0)
+      fullData.push(0)
+    }
+
+    getAction(fullData).then((action) => {
+      if (action === null) {
+        return
+      }
+      this.applyReceivedAction(action)
+    })
+    // this.applyReceivedAction(0)
+  }
+
+  applyReceivedAction(pickedIndex: number) {
+    const useGold = pickedIndex % 2 === 0
+    pickedIndex = Math.floor(pickedIndex / 2)
+    const i = Math.floor(pickedIndex / 36)
+    const rem1 = pickedIndex % 36
+    const y = Math.floor(rem1 / 12)
+    const rem2 = rem1 % 12
+    const x = Math.floor(rem2 / 4)
+    const r = rem2 % 4
+
+    // move cursor to position
+    this.render.globalHoveredSq = [i, y, x]
+    // apply rotation
+    for (let ri = 0; ri < r; ri++) {
+      this.rotatePiece(true)
+    }
+    // apply switch
+    this.useGold = useGold
+  }
+
   placePiece() {
     const render = this.render
-
     // exit if not holding piece or not previewing hover
-    if (this.currentPiece === null || this.currentPiece.hoveredSq === null) return
+    if (this.currentPiece === null || this.currentPiece.hoveredSq === null)
+      return
     const { calculatedSqs } = render.input
     // exit if not possible
-    if (calculatedSqs.some(sq => sq.isOverlapped || sq.isOutOfBound || sq.overlapSelf)) { return }
+    if (
+      calculatedSqs.some(
+        (sq) => sq.isOverlapped || sq.isOutOfBound || sq.overlapSelf,
+      )
+    ) {
+      return
+    }
 
     const bd = this.boardData
     // reset
+    this.trainingData.isReady = false
+    render.globalHoveredSq = null
     render.hintAtHelp = false
     render.input.hoveredSquare = null
     this.remainingPieces--
@@ -309,7 +487,11 @@ export default class Gameplay {
     // apply placement
     for (let i = 0; i < calculatedSqs.length; i++) {
       const sq = calculatedSqs[i]
-      bd[sq.id[0]][sq.id[1]][sq.id[2]] = sq.isGolden ? (this.useGold ? 2 : 3) : 1
+      bd[sq.id[0]][sq.id[1]][sq.id[2]] = sq.isGolden
+        ? this.useGold
+          ? 2
+          : 3
+        : 1
     }
 
     const spreadSources: SquareID[] = []
@@ -337,9 +519,11 @@ export default class Gameplay {
 
           // count adj golden and add potential new sources
           for (let aai = 0; aai < aasids.length; aai++) {
-            const aasid = aasids[aai];
+            const aasid = aasids[aai]
             const sqd = bd[aasid[0]][aasid[1]][aasid[2]]
-            if (sqd === 2) { goldenAdjsCount++ }
+            if (sqd === 2) {
+              goldenAdjsCount++
+            }
           }
           // if has at least 2 adj golden squares, then become golden and another source
           if (goldenAdjsCount > 1) {
@@ -354,24 +538,33 @@ export default class Gameplay {
     // apply clearing
     const clearedSqs = this.getClearableSqs()
     for (let i = 0; i < clearedSqs.length; i++) {
-      const sid = clearedSqs[i].id;
+      const sid = clearedSqs[i].id
       this.boardData[sid[0]][sid[1]][sid[2]] = 0
+      /// immediately add to score
+      if (clearedSqs[i].prevState === 2) {
+        this.goldPoints++
+      }
     }
 
-    render.animatedSpreadingSqs = newGoldenSqs.map((sid, i) => ({
-      id: sid, prg: -0.1 - i * 0.35 // delay between spreading squares
-    }))
-    render.animatedClearingSqs = clearedSqs
-
+    // render.animatedSpreadingSqs = newGoldenSqs.map((sid, i) => ({
+    //   id: sid,
+    //   prg: 0,
+    // }))
+    // render.animatedClearingSqs = clearedSqs
 
     this.startPlacingAnimation()
 
     // set currentPiece to null, reset useGold
     this.shiftPiecesInventory() // shift and create next piece
-    if (!this.hasPossiblePlacement()) { this.gameOverMessage = "NO_SPACE" }
+    if (!this.hasPossiblePlacement()) {
+      this.gameOverMessage = "NO_SPACE"
+    }
   }
 
-  getFirstSnapID(id: SquareID, sqdirs: sqDirs): { id: SquareID, faceChanges: boolean[] } {
+  getFirstSnapID(
+    id: SquareID,
+    sqdirs: sqDirs,
+  ): { id: SquareID; faceChanges: boolean[] } {
     const faceChanges: boolean[] = []
     for (let i = 0; i < sqdirs.length; i++) {
       switch (sqdirs[i]) {
@@ -383,15 +576,21 @@ export default class Gameplay {
           break
         case "D":
           if (id[1] === 0) {
-            if (faceChanges.length === 0) { faceChanges.push(true) }
-            else { faceChanges.push(faceChanges[0]) }
+            if (faceChanges.length === 0) {
+              faceChanges.push(true)
+            } else {
+              faceChanges.push(faceChanges[0])
+            }
           }
           id[1]--
           break
         case "L":
           if (id[2] === 0) {
-            if (faceChanges.length === 0) { faceChanges.push(false) }
-            else { faceChanges.push(faceChanges[0]) }
+            if (faceChanges.length === 0) {
+              faceChanges.push(false)
+            } else {
+              faceChanges.push(faceChanges[0])
+            }
           }
           id[2]--
           break
@@ -413,19 +612,20 @@ export default class Gameplay {
       let wasNextFace = true // first snap is default to true
       if (snapIndex > 0) {
         const pf = snaps[snapIndex - 1].id[0]
-        wasNextFace = ((cf === pf + 1) || (pf === 2 && cf === 0))
+        wasNextFace = cf === pf + 1 || (pf === 2 && cf === 0)
       }
 
       let i = cf + (wasNextFace ? 0 : 1)
-      const deg = PI / 180 * (i * 120 - 150)
-      const deg2 = deg + PI / 180 * 120
-      const _60deg = PI / 180 * (60)
+      const deg = (PI / 180) * (i * 120 - 150)
+      const deg2 = deg + (PI / 180) * 120
+      const _60deg = (PI / 180) * 60
       const cosDeg = cos(deg)
       const sinDeg = sin(deg)
 
-      const getEdgeVerts = (r: number): PositionType => (
-        [cosDeg * SL * r + GC.x, sinDeg * SL * r + GC.y]
-      )
+      const getEdgeVerts = (r: number): PositionType => [
+        cosDeg * SL * r + GC.x,
+        sinDeg * SL * r + GC.y,
+      ]
 
       // not representative for ID
       const y = wasNextFace ? snap.id[1] : snap.id[2]
@@ -434,7 +634,7 @@ export default class Gameplay {
         { edgeVert: getEdgeVerts(y), distCount: x },
         { edgeVert: getEdgeVerts(y + 1), distCount: x },
         { edgeVert: getEdgeVerts(y + 1), distCount: x + 1 },
-        { edgeVert: getEdgeVerts(y), distCount: x + 1 }
+        { edgeVert: getEdgeVerts(y), distCount: x + 1 },
       ]
       if (wasNextFace) {
         snap.startDeg = deg2 - _60deg
@@ -444,29 +644,33 @@ export default class Gameplay {
         snap.endDeg = deg - _60deg - _60deg
       }
     }
-
   }
 
   startPlacingAnimation() {
     const cp = this.currentPiece
-    if (!cp || !cp.hoveredSq) { return }
+    if (!cp || !cp.hoveredSq) {
+      return
+    }
 
     // set subphase
-    this.phase = "PLACE"
+    this.phase = "CLEAR"
     this.placingSubphase = "SLIDE"
     this.ug = 0
 
     let highestSnapsCount = 1
     // set up APS with only id in snaps
     const specialSqData: SquareData = this.useGold ? 2 : 3
-    const animatedPlacingSqs: APS[] = [{
-      sqData: cp.op.goldenSqIndex === "CENTER" ? specialSqData : 1,
-      snaps: [{ id: cp.hoveredSq.slice() as SquareID }]
-    }]
+    const animatedPlacingSqs: APS[] = [
+      {
+        sqData: cp.op.goldenSqIndex === "CENTER" ? specialSqData : 1,
+        snaps: [{ id: cp.hoveredSq.slice() as SquareID }],
+      },
+    ]
     // all other squares beside center square
     for (let i = 0; i < cp.sqList.length; i++) {
       const { id, faceChanges } = this.getFirstSnapID(
-        cp.hoveredSq.slice() as SquareID, cp.sqList[i]
+        cp.hoveredSq.slice() as SquareID,
+        cp.sqList[i],
       )
       if (faceChanges.length + 1 > highestSnapsCount) {
         highestSnapsCount = faceChanges.length + 1
@@ -486,7 +690,8 @@ export default class Gameplay {
         }
       }
       animatedPlacingSqs.push({
-        sqData: cp.op.goldenSqIndex === i ? specialSqData : 1, snaps: snaps
+        sqData: cp.op.goldenSqIndex === i ? specialSqData : 1,
+        snaps: snaps,
       })
     }
 
@@ -502,5 +707,21 @@ export default class Gameplay {
   switchType() {
     this.useGold = !this.useGold
   }
+}
 
+async function getAction(state: number[]) {
+  try {
+    const response = await fetch(`http://localhost:5000/predict`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ state: state }), // state is a 143-element array of floats
+    })
+    const data = await response.json()
+    return data.action // Returns the index of the action (0-215, masked)
+  } catch (error) {
+    console.error("Error fetching action:", error)
+    return null // Handle error, e.g., fallback action
+  }
 }
