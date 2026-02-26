@@ -97,7 +97,13 @@ export default class Render {
   goldenLasers: GoldenLaser[] = []
   piecesMovementPrg: number = 0
 
-  touchscreenOn: boolean = false
+  avgTracker: {
+    total: number
+    count: number
+  } = {
+    total: 0,
+    count: 0,
+  }
 
   RATINGS: [number, string][] = [
     // [score threshold, text]
@@ -407,111 +413,6 @@ export default class Render {
     )
   }
 
-  renderButtons() {
-    this.hoveredBtn = null // reset
-    const { mx, my } = this.gc
-    const _30deg = (Math.PI / 180) * 30
-
-    // top left button
-    this.renderBtn(
-      "help",
-      20,
-      -35,
-      10,
-      this.btnPrgs.help,
-      105,
-      55,
-      150,
-      35,
-      -_30deg,
-    )
-    // top right button
-    this.p5.noStroke()
-    this.renderBtn(
-      "mobile: " + (this.touchscreenOn ? "on" : "off"),
-      14,
-      -62,
-      7,
-      this.btnPrgs.touchscreen,
-      295,
-      55,
-      150,
-      35,
-      _30deg,
-    )
-    // switch btn
-    this.renderBtn(
-      "switch",
-      18,
-      -46,
-      9,
-      this.btnPrgs.switch,
-      200,
-      560,
-      150,
-      35,
-      0,
-    )
-    if (this.touchscreenOn) {
-      // bottom left button
-      this.renderBtn(
-        "place",
-        18,
-        -37,
-        9,
-        this.btnPrgs.place,
-        105,
-        385,
-        150,
-        35,
-        _30deg,
-      )
-      // bottom right button
-      this.renderBtn(
-        "rotate",
-        18,
-        -48,
-        9,
-        this.btnPrgs.rotate,
-        295,
-        385,
-        150,
-        35,
-        -_30deg,
-      )
-    }
-
-    // update all of btnPrgs
-    for (const key in this.btnPrgs) {
-      if (this.btnPrgs[key] < 1) {
-        this.btnPrgs[key] = Math.min(1, this.btnPrgs[key] + 0.16) // btn animation speed
-      }
-    }
-
-    if (this.gameplay.phase === "END" || this.helpModal.isOpened) {
-      return
-    } // blocked on end phase & when showing help
-
-    if (this.touchscreenOn) {
-      if (this.pointInRotRect(mx, my, 105, 385, 150, 35, true)) {
-        return (this.hoveredBtn = "PLACE")
-      }
-      if (this.pointInRotRect(mx, my, 295, 385, 150, 35, false)) {
-        return (this.hoveredBtn = "ROTATE")
-      }
-    }
-
-    if (this.pointInRotRect(mx, my, 105, 55, 150, 35, false)) {
-      return (this.hoveredBtn = "HELP")
-    }
-    if (this.pointInRotRect(mx, my, 295, 55, 150, 35, true)) {
-      return (this.hoveredBtn = "TOUCHSCREEN")
-    }
-    if (mx > 125 && mx < 275 && my > 540 && my < 580) {
-      return (this.hoveredBtn = "SWITCH")
-    }
-  }
-
   isThePlacingSquare(id: SquareID): boolean {
     if (this.gameplay.phase !== "PLACE") {
       return false
@@ -808,28 +709,9 @@ export default class Render {
     const goldenColor = this.getSqColor(2)
     const normalColor = this.getSqColor(1)
 
-    p5.background(26, 23, 11)
-    p5.noStroke()
-    this.renderButtons()
-    this.renderGrid()
-    this.renderExistingSquares()
-
-    // desktop render
-    if (!this.touchscreenOn) {
-      // render control hints
-      const _30deg = (Math.PI / 180) * 30
-      p5.noStroke()
-      p5.push()
-      p5.translate(50, 350)
-      p5.rotate(_30deg)
-      customFont.render("click: place", 0, 0, 12, normalColor, p5)
-      p5.pop()
-      p5.push()
-      p5.translate(260, 400)
-      p5.rotate(-_30deg)
-      customFont.render("r: rotate\ns: switch", 0, 0, 12, normalColor, p5)
-      p5.pop()
-    }
+    // p5.background(26, 23, 11)
+    // this.renderGrid()
+    // this.renderExistingSquares()
 
     const { currentPiece } = gp
     // holding a piece?
@@ -909,83 +791,83 @@ export default class Render {
         }
 
         // rendering
-        for (let i = 0; i < calculatedSqs.length; i++) {
-          const { id, isGolden, isOutOfBound } = calculatedSqs[i]
-          if (isOutOfBound) continue
+        // for (let i = 0; i < calculatedSqs.length; i++) {
+        //   const { id, isGolden, isOutOfBound } = calculatedSqs[i]
+        //   if (isOutOfBound) continue
 
-          const sqVerts = this.GRID_VERTICES.faces[id[0]][id[1]][id[2]]
-          if (possiblePlacement) {
-            if (isGolden) {
-              if (gp.useGold) {
-                p5.fill(237, 252, 66, 140)
-              } else {
-                p5.fill(240, 38, 216, 140)
-              } // destroyer
-            } else {
-              p5.fill(150, 255, 180, 140)
-            } // normal
-          } else {
-            p5.fill(242, 82, 82, 140) // red
-          }
-          p5.noStroke()
-          p5.beginShape()
-          for (let sv = 0; sv < sqVerts.length; sv++) {
-            p5.vertex(sqVerts[sv][0], sqVerts[sv][1])
-          }
-          p5.endShape(p5.CLOSE)
-        }
+        //   const sqVerts = this.GRID_VERTICES.faces[id[0]][id[1]][id[2]]
+        //   if (possiblePlacement) {
+        //     if (isGolden) {
+        //       if (gp.useGold) {
+        //         p5.fill(237, 252, 66, 140)
+        //       } else {
+        //         p5.fill(240, 38, 216, 140)
+        //       } // destroyer
+        //     } else {
+        //       p5.fill(150, 255, 180, 140)
+        //     } // normal
+        //   } else {
+        //     p5.fill(242, 82, 82, 140) // red
+        //   }
+        //   p5.noStroke()
+        //   p5.beginShape()
+        //   for (let sv = 0; sv < sqVerts.length; sv++) {
+        //     p5.vertex(sqVerts[sv][0], sqVerts[sv][1])
+        //   }
+        //   p5.endShape(p5.CLOSE)
+        // }
 
         this.input.calculatedSqs = calculatedSqs // for click action
       }
     }
 
     // render next pieces
-    p5.stroke(normalColor)
-    p5.strokeWeight(2)
-    for (let i = 0; i < 2; i++) {
-      const piece = gp.nextPieces[i]
-      if (piece === null) break
+    // p5.stroke(normalColor)
+    // p5.strokeWeight(2)
+    // for (let i = 0; i < 2; i++) {
+    //   const piece = gp.nextPieces[i]
+    //   if (piece === null) break
 
-      const yOffset = (1 - this.piecesMovementPrg) * (i === 0 ? 60 : 150)
-      const { sqsCoors, hIndex } = this.getPieceImageData(piece)
-      for (let si = 0; si < sqsCoors.length; si++) {
-        const coor = sqsCoors[si]
-        if (hIndex === si) {
-          p5.fill(goldenColor)
-        } else {
-          p5.fill(normalColor)
-        }
-        p5.square(coor[1] * 18 + 350, coor[0] * 18 + 460 + i * 60 + yOffset, 18)
-      }
-    }
+    //   const yOffset = (1 - this.piecesMovementPrg) * (i === 0 ? 60 : 150)
+    //   const { sqsCoors, hIndex } = this.getPieceImageData(piece)
+    //   for (let si = 0; si < sqsCoors.length; si++) {
+    //     const coor = sqsCoors[si]
+    //     if (hIndex === si) {
+    //       p5.fill(goldenColor)
+    //     } else {
+    //       p5.fill(normalColor)
+    //     }
+    //     p5.square(coor[1] * 18 + 350, coor[0] * 18 + 460 + i * 60 + yOffset, 18)
+    //   }
+    // }
     if (this.piecesMovementPrg < 1) {
       this.piecesMovementPrg = 1 // Math.min(1, this.piecesMovementPrg + 0.08)
     }
 
     // render current piece
-    if (currentPiece) {
-      const { sqsCoors, hIndex } = this.getPieceImageData(currentPiece.op)
-      const prg = 1 - this.piecesMovementPrg
-      const squareSize = 30 - 12 * prg
-      p5.strokeWeight(3 + -1 * prg)
-      for (let si = 0; si < sqsCoors.length; si++) {
-        const coor = sqsCoors[si]
-        if (hIndex === si) {
-          if (gp.useGold) {
-            p5.fill(goldenColor)
-          } else {
-            p5.fill(this.getSqColor(3))
-          }
-        } else {
-          p5.fill(normalColor)
-        }
-        p5.square(
-          coor[1] * squareSize + 200 + 150 * prg,
-          coor[0] * squareSize + 475 + -15 * prg,
-          squareSize,
-        )
-      }
-    }
+    // if (currentPiece) {
+    //   const { sqsCoors, hIndex } = this.getPieceImageData(currentPiece.op)
+    //   const prg = 1 - this.piecesMovementPrg
+    //   const squareSize = 30 - 12 * prg
+    //   p5.strokeWeight(3 + -1 * prg)
+    //   for (let si = 0; si < sqsCoors.length; si++) {
+    //     const coor = sqsCoors[si]
+    //     if (hIndex === si) {
+    //       if (gp.useGold) {
+    //         p5.fill(goldenColor)
+    //       } else {
+    //         p5.fill(this.getSqColor(3))
+    //       }
+    //     } else {
+    //       p5.fill(normalColor)
+    //     }
+    //     p5.square(
+    //       coor[1] * squareSize + 200 + 150 * prg,
+    //       coor[0] * squareSize + 475 + -15 * prg,
+    //       squareSize,
+    //     )
+    //   }
+    // }
 
     // render PLACE, SPREAD, CLEAR animations
     if (gp.phase !== "PLAY") {
@@ -1002,29 +884,29 @@ export default class Render {
           continue
         }
 
-        p5.fill(this.getSqColor(acsq.prevState))
         const sqVerts = GRID_VERTICES.faces[acsq.id[0]][acsq.id[1]][acsq.id[2]]
         const centerPos: PositionType = [
           (sqVerts[0][0] + sqVerts[1][0] + sqVerts[2][0] + sqVerts[3][0]) / 4,
           (sqVerts[0][1] + sqVerts[1][1] + sqVerts[2][1] + sqVerts[3][1]) / 4,
         ]
 
-        p5.push()
-        p5.translate(centerPos[0], centerPos[1])
-        if (acsq.prg > 0) {
-          const t = acsq.prg
-          const s = 1 - t + 4 * t * (1 - t) * (1.8 - 1) // last one is adjustable peak
-          p5.scale(s)
-        }
-        p5.beginShape()
-        for (let sv = 0; sv < sqVerts.length; sv++) {
-          p5.vertex(
-            sqVerts[sv][0] - centerPos[0],
-            sqVerts[sv][1] - centerPos[1],
-          )
-        }
-        p5.endShape(p5.CLOSE)
-        p5.pop()
+        // p5.fill(this.getSqColor(acsq.prevState))
+        // p5.push()
+        // p5.translate(centerPos[0], centerPos[1])
+        // if (acsq.prg > 0) {
+        //   const t = acsq.prg
+        //   const s = 1 - t + 4 * t * (1 - t) * (1.8 - 1) // last one is adjustable peak
+        //   p5.scale(s)
+        // }
+        // p5.beginShape()
+        // for (let sv = 0; sv < sqVerts.length; sv++) {
+        //   p5.vertex(
+        //     sqVerts[sv][0] - centerPos[0],
+        //     sqVerts[sv][1] - centerPos[1],
+        //   )
+        // }
+        // p5.endShape(p5.CLOSE)
+        // p5.pop()
 
         if (gp.phase === "CLEAR") {
           acsq.prg += 0.06
@@ -1052,21 +934,21 @@ export default class Render {
           continue
         }
 
-        if (assq.prg < 0) {
-          colorValue = normalColor
-        } else if (assq.prg < 1) {
-          colorValue = p5.color(250)
-        } else {
-          colorValue = goldenColor
-        }
+        // if (assq.prg < 0) {
+        //   colorValue = normalColor
+        // } else if (assq.prg < 1) {
+        //   colorValue = p5.color(250)
+        // } else {
+        //   colorValue = goldenColor
+        // }
 
-        p5.fill(colorValue)
-        p5.beginShape()
-        const sqVerts = GRID_VERTICES.faces[assq.id[0]][assq.id[1]][assq.id[2]]
-        for (let sv = 0; sv < sqVerts.length; sv++) {
-          p5.vertex(sqVerts[sv][0], sqVerts[sv][1])
-        }
-        p5.endShape(p5.CLOSE)
+        // p5.fill(colorValue)
+        // p5.beginShape()
+        // const sqVerts = GRID_VERTICES.faces[assq.id[0]][assq.id[1]][assq.id[2]]
+        // for (let sv = 0; sv < sqVerts.length; sv++) {
+        //   p5.vertex(sqVerts[sv][0], sqVerts[sv][1])
+        // }
+        // p5.endShape(p5.CLOSE)
 
         if (gp.phase === "SPREAD") {
           assq.prg += 0.12
@@ -1090,29 +972,29 @@ export default class Render {
             enterDeg = 150
           }
           enterDeg = (PI / 180) * enterDeg
-          const calculatedPrg = 1 - (1 - Math.pow(1 - gp.ug, 3))
-          const offX = cos(enterDeg) * calculatedPrg * 300
-          const offY = sin(enterDeg) * calculatedPrg * 300
+          // const calculatedPrg = 1 - (1 - Math.pow(1 - gp.ug, 3))
+          // const offX = cos(enterDeg) * calculatedPrg * 300
+          // const offY = sin(enterDeg) * calculatedPrg * 300
 
-          p5.stroke(normalColor)
-          p5.strokeWeight(4)
-          // for each square
-          for (let i = 0; i < 4; i++) {
-            const aps = this.animatedPlacingSqs[i]
-            const snap = aps.snaps[0] // FIRST snap
+          // p5.stroke(normalColor)
+          // p5.strokeWeight(4)
+          // // for each square
+          // for (let i = 0; i < 4; i++) {
+          //   const aps = this.animatedPlacingSqs[i]
+          //   const snap = aps.snaps[0] // FIRST snap
 
-            p5.fill(this.getSqColor(aps.sqData))
-            p5.beginShape()
-            // for each vertex
-            for (let v = 0; v < 4; v++) {
-              const { edgeVert, distCount } = snap.aSqVerts![v]
-              p5.vertex(
-                edgeVert[0] + cos(snap.endDeg!) * distCount * SL + offX,
-                edgeVert[1] + sin(snap.endDeg!) * distCount * SL + offY,
-              )
-            }
-            p5.endShape(p5.CLOSE)
-          }
+          //   p5.fill(this.getSqColor(aps.sqData))
+          //   p5.beginShape()
+          //   // for each vertex
+          //   for (let v = 0; v < 4; v++) {
+          //     const { edgeVert, distCount } = snap.aSqVerts![v]
+          //     p5.vertex(
+          //       edgeVert[0] + cos(snap.endDeg!) * distCount * SL + offX,
+          //       edgeVert[1] + sin(snap.endDeg!) * distCount * SL + offY,
+          //     )
+          //   }
+          //   p5.endShape(p5.CLOSE)
+          // }
           // update ug
           if (gp.ug < 1) {
             gp.ug = 1 // Math.min(1, gp.ug + 0.05)
@@ -1146,27 +1028,27 @@ export default class Render {
               }
             }
 
-            p5.fill(this.getSqColor(aps.sqData))
-            p5.beginShape()
-            if (isRotating) {
-              const d = p5.map(gp.ug, 0, 1, snap.startDeg!, snap.endDeg!)
-              for (let v = 0; v < 4; v++) {
-                const { edgeVert, distCount } = snap.aSqVerts![v]
-                p5.vertex(
-                  edgeVert[0] + cos(d) * distCount * SL,
-                  edgeVert[1] + sin(d) * distCount * SL,
-                )
-              }
-            } else {
-              for (let v = 0; v < 4; v++) {
-                const { edgeVert, distCount } = snap.aSqVerts![v]
-                p5.vertex(
-                  edgeVert[0] + cos(snap.endDeg!) * distCount * SL,
-                  edgeVert[1] + sin(snap.endDeg!) * distCount * SL,
-                )
-              }
-            }
-            p5.endShape(p5.CLOSE)
+            // p5.fill(this.getSqColor(aps.sqData))
+            // p5.beginShape()
+            // if (isRotating) {
+            //   const d = p5.map(gp.ug, 0, 1, snap.startDeg!, snap.endDeg!)
+            //   for (let v = 0; v < 4; v++) {
+            //     const { edgeVert, distCount } = snap.aSqVerts![v]
+            //     p5.vertex(
+            //       edgeVert[0] + cos(d) * distCount * SL,
+            //       edgeVert[1] + sin(d) * distCount * SL,
+            //     )
+            //   }
+            // } else {
+            //   for (let v = 0; v < 4; v++) {
+            //     const { edgeVert, distCount } = snap.aSqVerts![v]
+            //     p5.vertex(
+            //       edgeVert[0] + cos(snap.endDeg!) * distCount * SL,
+            //       edgeVert[1] + sin(snap.endDeg!) * distCount * SL,
+            //     )
+            //   }
+            // }
+            // p5.endShape(p5.CLOSE)
           }
           // update ug
           if (gp.ug < 1) {
@@ -1203,7 +1085,11 @@ export default class Render {
       if (gp.phase === "CLEAR") {
         if (animatedClearingSqs.length === 0) {
           if (gp.gameOverMessage !== null) {
-            console.log("Score: " + gp.goldPoints)
+            this.avgTracker.total += gp.goldPoints
+            this.avgTracker.count++
+            console.log(
+              `${gp.goldPoints}  ${Math.floor(this.avgTracker.total / this.avgTracker.count)} (${this.avgTracker.count})`,
+            )
             gp.setUpNewGame()
           } else {
             gp.phase = "PLAY"
@@ -1213,69 +1099,69 @@ export default class Render {
     }
 
     // render gold points
-    p5.stroke(normalColor)
-    p5.strokeWeight(3)
-    p5.fill(goldenColor)
-    p5.square(25, 475, 16)
-    customFont.render(
-      gp.goldPoints + "",
-      43,
-      487,
-      26,
-      p5.color(245, 228, 44),
-      p5,
-    )
+    // p5.stroke(normalColor)
+    // p5.strokeWeight(3)
+    // p5.fill(goldenColor)
+    // p5.square(25, 475, 16)
+    // customFont.render(
+    //   gp.goldPoints + "",
+    //   43,
+    //   487,
+    //   26,
+    //   p5.color(245, 228, 44),
+    //   p5,
+    // )
 
     // render remaining num
-    customFont.render(
-      gp.remainingPieces + " left",
-      20,
-      518,
-      15,
-      normalColor,
-      p5,
-    )
+    // customFont.render(
+    //   gp.remainingPieces + " left",
+    //   20,
+    //   518,
+    //   15,
+    //   normalColor,
+    //   p5,
+    // )
 
     // render golden lasers
-    const LASER_SPEED = this.CONSTS.LASER_SPEED
-    for (let i = this.goldenLasers.length - 1; i >= 0; i--) {
-      const gl = this.goldenLasers[i]
+    // const LASER_SPEED = this.CONSTS.LASER_SPEED
+    // for (let i = this.goldenLasers.length - 1; i >= 0; i--) {
+    //   const gl = this.goldenLasers[i]
 
-      let dx = gl.targetPos[0] - gl.pos1[0],
-        dy = gl.targetPos[1] - gl.pos1[1],
-        d = Math.hypot(dx, dy)
-      // would go past target? set to targetPos
-      if (LASER_SPEED >= d) {
-        gl.pos1[0] = gl.targetPos[0]
-        gl.pos1[1] = gl.targetPos[1]
-      } else {
-        gl.pos1[0] += (dx / d) * LASER_SPEED
-        gl.pos1[1] += (dy / d) * LASER_SPEED
-      }
-      if (gl.delay > 0) {
-        gl.delay--
-      } else {
-        // update pos2
-        let dx = gl.targetPos[0] - gl.pos2[0],
-          dy = gl.targetPos[1] - gl.pos2[1],
-          d = Math.hypot(dx, dy)
-        // would go past target? remove laser and add to score
-        if (LASER_SPEED >= d) {
-          gp.goldPoints++
-          this.goldenLasers.splice(i, 1)
-        } else {
-          gl.pos2[0] += (dx / d) * LASER_SPEED
-          gl.pos2[1] += (dy / d) * LASER_SPEED
-        }
-      }
+    //   let dx = gl.targetPos[0] - gl.pos1[0],
+    //     dy = gl.targetPos[1] - gl.pos1[1],
+    //     d = Math.hypot(dx, dy)
+    //   // would go past target? set to targetPos
+    //   if (LASER_SPEED >= d) {
+    //     gl.pos1[0] = gl.targetPos[0]
+    //     gl.pos1[1] = gl.targetPos[1]
+    //   } else {
+    //     gl.pos1[0] += (dx / d) * LASER_SPEED
+    //     gl.pos1[1] += (dy / d) * LASER_SPEED
+    //   }
+    //   if (gl.delay > 0) {
+    //     gl.delay--
+    //   } else {
+    //     // update pos2
+    //     let dx = gl.targetPos[0] - gl.pos2[0],
+    //       dy = gl.targetPos[1] - gl.pos2[1],
+    //       d = Math.hypot(dx, dy)
+    //     // would go past target? remove laser and add to score
+    //     if (LASER_SPEED >= d) {
+    //       gp.goldPoints++
+    //       this.goldenLasers.splice(i, 1)
+    //     } else {
+    //       gl.pos2[0] += (dx / d) * LASER_SPEED
+    //       gl.pos2[1] += (dy / d) * LASER_SPEED
+    //     }
+    //   }
 
-      p5.stroke(normalColor)
-      p5.strokeWeight(10)
-      p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
-      p5.stroke(245, 228, 44)
-      p5.strokeWeight(5)
-      p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
-    }
+    //   p5.stroke(normalColor)
+    //   p5.strokeWeight(10)
+    //   p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
+    //   p5.stroke(245, 228, 44)
+    //   p5.strokeWeight(5)
+    //   p5.line(gl.pos1[0], gl.pos1[1], gl.pos2[0], gl.pos2[1])
+    // }
 
     // end phase (MESSAGE), wait until no more laser
     if (gp.phase === "END" && this.goldenLasers.length === 0) {
@@ -1296,13 +1182,13 @@ export default class Render {
     }
 
     // animate end phase image
-    if (endModal.img) {
-      p5.image(endModal.img, 200 + endModal.imgPrg * 400, 300, 400, 600)
-      endModal.imgPrg = Math.min(1, endModal.imgPrg + 0.1)
-      if (endModal.imgPrg >= 1) {
-        endModal.img = null
-      }
-    }
+    // if (endModal.img) {
+    //   p5.image(endModal.img, 200 + endModal.imgPrg * 400, 300, 400, 600)
+    //   endModal.imgPrg = Math.min(1, endModal.imgPrg + 0.1)
+    //   if (endModal.imgPrg >= 1) {
+    //     endModal.img = null
+    //   }
+    // }
 
     // auto place if is previewing
     if (this.globalHoveredSq !== null) {
@@ -1329,75 +1215,6 @@ export default class Render {
         this.endModal.img = p5.get(0, 0, p5.width, p5.height)
       }
       return
-    }
-
-    if (this.helpModal.isOpened) {
-      const hm = this.helpModal
-      // check next btn
-      if (this.hoveredBtn === "NEXT") {
-        this.btnPrgs.next = 0
-        hm.prg = 0
-        hm.prevY = hm.targetY
-
-        // set next targetY
-        switch (hm.index) {
-          case 0:
-            hm.targetY = 150
-            break
-          case 1:
-            hm.targetY = 500
-            break
-          case 2:
-            hm.targetY = 180
-            break
-          case 3:
-            hm.targetY = 230
-            break
-          case 4:
-            hm.targetY = -100
-            break
-        }
-
-        // last index?
-        if (hm.index === 4) {
-          hm.isOpened = false
-        } else {
-          hm.index++
-        }
-      }
-      return
-    }
-
-    switch (this.hoveredBtn) {
-      case "HELP":
-        this.btnPrgs.help = 0
-        this.hintAtHelp = false
-        this.helpModal.isOpened = true
-        this.helpModal.prevY = -100
-        this.helpModal.targetY = 230
-        this.helpModal.index = 0
-        this.helpModal.prg = 0
-        return
-      case "TOUCHSCREEN":
-        this.btnPrgs.touchscreen = 0
-        this.touchscreenOn = !this.touchscreenOn
-        this.btnPrgs.place = 0
-        this.btnPrgs.rotate = 0
-        return
-      case "SWITCH":
-        this.btnPrgs.switch = 0
-        gp.switchType()
-        return
-      case "PLACE":
-        this.btnPrgs.place = 0
-        if (gp.currentPiece && gp.currentPiece.hoveredSq) {
-          gp.placePiece()
-        }
-        return
-      case "ROTATE":
-        this.btnPrgs.rotate = 0
-        this.gameplay.rotatePiece(true)
-        return
     }
   }
 

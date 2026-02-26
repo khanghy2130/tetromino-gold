@@ -594,9 +594,10 @@ export default class Gameplay {
     // send to /update
     if (td.savedState) {
       td.isWaitingForReward = true
-      // gold cleared + spreaded - non-gold cleared
+      // passive bonus + gold cleared + spreaded - non-gold cleared
       const gameIsOver = this.gameOverMessage !== null
       let reward: number =
+        0.1 +
         td.goldClearedCount * 0.3 +
         td.spreadCount * 0.2 +
         td.nonGoldClearedCount * -0.5
@@ -767,6 +768,13 @@ export default class Gameplay {
 }
 
 async function getAction(state: number[]) {
+  // if (true) {
+  //   let pickedActionIndex
+  //   do {
+  //     pickedActionIndex = Math.floor(Math.random() * 108)
+  //   } while (state[pickedActionIndex] === 0)
+  //   return pickedActionIndex * 2 + (Math.random() > 0.5 ? 1 : 0)
+  // }
   try {
     const response = await fetch(`http://localhost:5000/predict`, {
       method: "POST",
@@ -790,6 +798,7 @@ async function postUpdate(updateData: {
   next_state: number[]
   done: boolean
 }) {
+  // return "yes"
   try {
     const response = await fetch(`http://localhost:5000/update`, {
       method: "POST",
