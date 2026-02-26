@@ -30,8 +30,20 @@ export default class Gameplay {
 
   trainingData: {
     isReady: boolean
+    isWaitingForReward: boolean
+    savedState: number[] | null
+    savedAction: number
+    spreadCount: number
+    goldClearedCount: number
+    nonGoldClearedCount: number
   } = {
     isReady: false, // false if needing new data
+    isWaitingForReward: false,
+    savedState: null,
+    savedAction: 0,
+    spreadCount: 0,
+    goldClearedCount: 0,
+    nonGoldClearedCount: 0,
   }
 
   RAW_PIECES: sqDirs[][] = [
@@ -69,11 +81,11 @@ export default class Gameplay {
 
   getNewPiece(): OriginalPiece {
     // make sure new piece is not the same type as last one
-    let sqList: sqDirs[] = this.RAW_PIECES[6]
-    // let sqList: sqDirs[] = this.getRandomItem(this.RAW_PIECES)
-    // while (sqList === this.nextPieces[0]?.sqList) {
-    //   sqList = this.getRandomItem(this.RAW_PIECES)
-    // }
+    // let sqList: sqDirs[] = this.RAW_PIECES[6]
+    let sqList: sqDirs[] = this.getRandomItem(this.RAW_PIECES)
+    while (sqList === this.nextPieces[0]?.sqList) {
+      sqList = this.getRandomItem(this.RAW_PIECES)
+    }
     return {
       sqList: sqList,
       goldenSqIndex: this.getRandomItem([0, 1, 2, "CENTER"]),
@@ -83,6 +95,8 @@ export default class Gameplay {
   setUpNewGame() {
     // reset
     this.trainingData.isReady = false
+    this.trainingData.isWaitingForReward = false
+    this.trainingData.savedState = null
     this.render.globalHoveredSq = null
     this.remainingPieces = 30
     this.goldPoints = 0
@@ -330,115 +344,127 @@ export default class Gameplay {
     return false
   }
 
-  sendTrainingData(): void {
-    if (!this.currentPiece) {
-      return
-    }
-    if (this.trainingData.isReady) {
-      return
-    }
+  getStateData(): number[] {
+    const currentPiece = this.currentPiece
     const getSteppedSqID = this.render.getSteppedSqID.bind(this.render)
-
-    this.trainingData.isReady = true
     const pms: (0 | 1)[] = []
 
-    // for each empty sq
-    for (let i = 0; i < 3; i++) {
-      for (let y = 0; y < 3; y++) {
-        for (let x = 0; x < 3; x++) {
-          // FOR EACH square on board
-          const sd = this.boardData[i][y][x]
-          const sqID: SquareID = [i, y, x]
+    if (currentPiece) {
+      // for each empty sq
+      for (let i = 0; i < 3; i++) {
+        for (let y = 0; y < 3; y++) {
+          for (let x = 0; x < 3; x++) {
+            // FOR EACH square on board
+            const sd = this.boardData[i][y][x]
+            const sqID: SquareID = [i, y, x]
 
-          // occupied? add 4 empty moves
-          if (sd !== 0) {
-            pms.push(0)
-            pms.push(0)
-            pms.push(0)
-            pms.push(0)
-            continue
-          }
-
-          let sqList = this.currentPiece.sqList
-          // for each of 4 rotations
-          loop1: for (let r = 0; r < 4; r++) {
-            if (r > 0) {
-              sqList = this.rotateSqList(sqList, true)
+            // occupied? add 4 empty moves
+            if (sd !== 0) {
+              pms.push(0)
+              pms.push(0)
+              pms.push(0)
+              pms.push(0)
+              continue
             }
-            const oPieceCheckSids: (SquareID | null)[] = []
-            for (let sli = 0; sli < 3; sli++) {
-              const id = getSteppedSqID(sqList[sli], sqID)
-              oPieceCheckSids.push(id)
-              // out of bound || this pos is occupied? add an empty move
-              if (id === null || this.boardData[id[0]][id[1]][id[2]] !== 0) {
-                pms.push(0)
-                continue loop1
+
+            let sqList = currentPiece.sqList
+            // for each of 4 rotations
+            loop1: for (let r = 0; r < 4; r++) {
+              if (r > 0) {
+                sqList = this.rotateSqList(sqList, true)
               }
-            }
-
-            // special check for O-piece
-            if (this.currentPiece.op.sqList === this.RAW_PIECES[6]) {
-              const facesList: number[] = [i] // including unlisted square face (center)
-              for (let si = 0; si < oPieceCheckSids.length; si++) {
-                const sid = oPieceCheckSids[si]
-                if (sid && !facesList.includes(sid[0])) {
-                  facesList.push(sid[0])
+              const oPieceCheckSids: (SquareID | null)[] = []
+              for (let sli = 0; sli < 3; sli++) {
+                const id = getSteppedSqID(sqList[sli], sqID)
+                oPieceCheckSids.push(id)
+                // out of bound || this pos is occupied? add an empty move
+                if (id === null || this.boardData[id[0]][id[1]][id[2]] !== 0) {
+                  pms.push(0)
+                  continue loop1
                 }
               }
-              if (facesList.length === 3) {
-                pms.push(0)
-                continue loop1
-              }
-            }
 
-            pms.push(1) //is placeable
+              // special check for O-piece
+              if (currentPiece.op.sqList === this.RAW_PIECES[6]) {
+                const facesList: number[] = [i] // including unlisted square face (center)
+                for (let si = 0; si < oPieceCheckSids.length; si++) {
+                  const sid = oPieceCheckSids[si]
+                  if (sid && !facesList.includes(sid[0])) {
+                    facesList.push(sid[0])
+                  }
+                }
+                if (facesList.length === 3) {
+                  pms.push(0)
+                  continue loop1
+                }
+              }
+
+              pms.push(1) //is placeable
+            }
           }
         }
       }
+    } else {
+      for (let i = 0; i < 108; i++) {
+        pms.push(0)
+      }
     }
 
-    const fullData: number[] = []
+    const stateData: number[] = []
 
     // possible moves
-    fullData.push(...pms.flat(Infinity))
+    stateData.push(...pms.flat(Infinity))
 
     // score & turns left
-    fullData.push(this.goldPoints / 120)
-    fullData.push(this.remainingPieces / 30)
+    stateData.push(this.goldPoints / 120)
+    stateData.push(this.remainingPieces / 30)
 
     // @ts-ignore
-    fullData.push(...this.boardData.flat(Infinity)) // board
+    stateData.push(...this.boardData.flat(Infinity)) // board
 
     // 3 pieces
-    if (true) {
-      const op = this.currentPiece.op
-      fullData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
-      fullData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
+    if (currentPiece) {
+      const op = currentPiece.op
+      stateData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
+      stateData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
+    } else {
+      stateData.push(0)
+      stateData.push(0)
     }
     if (this.nextPieces[0]) {
       const op = this.nextPieces[0]
-      fullData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
-      fullData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
+      stateData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
+      stateData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
     } else {
-      fullData.push(0)
-      fullData.push(0)
+      stateData.push(0)
+      stateData.push(0)
     }
     if (this.nextPieces[1]) {
       const op = this.nextPieces[1]
-      fullData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
-      fullData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
+      stateData.push(this.RAW_PIECES.indexOf(op.sqList) + 1)
+      stateData.push(op.goldenSqIndex === "CENTER" ? 1 : op.goldenSqIndex + 2)
     } else {
-      fullData.push(0)
-      fullData.push(0)
+      stateData.push(0)
+      stateData.push(0)
     }
 
-    getAction(fullData).then((action) => {
-      if (action === null) {
-        return
-      }
+    return stateData
+  }
+
+  sendTrainingData(): void {
+    if (!this.currentPiece) return
+    if (this.trainingData.isReady) return
+    if (this.trainingData.isWaitingForReward) return
+
+    this.trainingData.isReady = true
+    const stateData = this.getStateData()
+    this.trainingData.savedState = stateData
+
+    getAction(stateData).then((action) => {
+      if (action === null) return
+      this.trainingData.savedAction = action
       this.applyReceivedAction(action)
     })
-    // this.applyReceivedAction(0)
   }
 
   applyReceivedAction(pickedIndex: number) {
@@ -472,13 +498,13 @@ export default class Gameplay {
       calculatedSqs.some(
         (sq) => sq.isOverlapped || sq.isOutOfBound || sq.overlapSelf,
       )
-    ) {
+    )
       return
-    }
 
+    const td = this.trainingData
     const bd = this.boardData
     // reset
-    this.trainingData.isReady = false
+    td.isReady = false
     render.globalHoveredSq = null
     render.hintAtHelp = false
     render.input.hoveredSquare = null
@@ -540,11 +566,16 @@ export default class Gameplay {
     for (let i = 0; i < clearedSqs.length; i++) {
       const sid = clearedSqs[i].id
       this.boardData[sid[0]][sid[1]][sid[2]] = 0
-      /// immediately add to score
+      // immediately add to score
       if (clearedSqs[i].prevState === 2) {
         this.goldPoints++
+        td.goldClearedCount++
+      } else {
+        td.nonGoldClearedCount++
       }
     }
+
+    td.spreadCount = newGoldenSqs.length
 
     // render.animatedSpreadingSqs = newGoldenSqs.map((sid, i) => ({
     //   id: sid,
@@ -558,6 +589,32 @@ export default class Gameplay {
     this.shiftPiecesInventory() // shift and create next piece
     if (!this.hasPossiblePlacement()) {
       this.gameOverMessage = "NO_SPACE"
+    }
+
+    // send to /update
+    if (td.savedState) {
+      td.isWaitingForReward = true
+      // gold cleared + spreaded - non-gold cleared
+      const gameIsOver = this.gameOverMessage !== null
+      let reward: number =
+        td.goldClearedCount * 0.3 +
+        td.spreadCount * 0.2 +
+        td.nonGoldClearedCount * -0.5
+      if (gameIsOver) {
+        // penalty if ran out of space, else bonus
+        if (this.gameOverMessage === "NO_SPACE") reward -= 5
+        else reward += 5
+      }
+      postUpdate({
+        state: td.savedState,
+        action: td.savedAction,
+        reward: reward,
+        next_state: this.getStateData(),
+        done: gameIsOver,
+      }).then((res) => {
+        if (res === null) return
+        td.isWaitingForReward = false
+      })
     }
   }
 
@@ -722,6 +779,29 @@ async function getAction(state: number[]) {
     return data.action // Returns the index of the action (0-215, masked)
   } catch (error) {
     console.error("Error fetching action:", error)
-    return null // Handle error, e.g., fallback action
+    return null
+  }
+}
+
+async function postUpdate(updateData: {
+  state: number[]
+  action: number
+  reward: number
+  next_state: number[]
+  done: boolean
+}) {
+  try {
+    const response = await fetch(`http://localhost:5000/update`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updateData),
+    })
+    const data = await response.json()
+    return data.action
+  } catch (error) {
+    console.error("Error updating:", error)
+    return null
   }
 }

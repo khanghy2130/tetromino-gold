@@ -1306,6 +1306,10 @@ export default class Render {
 
     // auto place if is previewing
     if (this.globalHoveredSq !== null) {
+      // reset before applying move
+      gp.trainingData.spreadCount = 0
+      gp.trainingData.goldClearedCount = 0
+      gp.trainingData.nonGoldClearedCount = 0
       gp.placePiece()
     }
     // set up placement
@@ -1399,92 +1403,30 @@ export default class Render {
 
   keyPressed() {
     const kc = this.p5.keyCode
-
-    if (kc === 32) {
-      console.log(this.globalHoveredSq)
-      console.log(this.gameplay.trainingData)
+    console.log(kc)
+    if (kc === 82) {
+      // key r
+      resetModel().then((res) => {
+        if (res === null) return
+        console.log(res)
+      })
     }
   }
 }
 
-/*
-
-
-// Example JavaScript code for the game to interact with the Flask API
-// Assume you have functions to get the current state as a 143-element array,
-// take an action based on the returned index, and compute reward/next_state/done.
-
-// Base URL for the API (adjust if needed)
-const API_URL = 'http://localhost:5000'; // Use HTTPS since the server uses SSL
-
-// Function to get the best action from the model
-async function getAction(state) {
-    try {
-        const response = await fetch(`${API_URL}/predict`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ state: state }) // state is a 143-element array of floats
-        });
-        const data = await response.json();
-        return data.action; // Returns the index of the action (0-215, masked)
-    } catch (error) {
-        console.error('Error fetching action:', error);
-        return null; // Handle error, e.g., fallback action
-    }
+async function resetModel() {
+  return
+  try {
+    const response = await fetch(`http://localhost:5000/reset`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    const data = await response.json()
+    return data.action
+  } catch (error) {
+    console.error("Error resetting model:", error)
+    return null
+  }
 }
-
-
-// Function to send an update to the model for training
-async function sendUpdate(state, action, reward, nextState, done) {
-    try {
-        const response = await fetch(`${API_URL}/update`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                state: state,        // 143-element array
-                action: action,      // int (0-215)
-                reward: reward,      // float
-                next_state: nextState, // 143-element array
-                done: done           // boolean
-            })
-        });
-        const data = await response.json();
-        console.log('Update status:', data.status);
-    } catch (error) {
-        console.error('Error sending update:', error);
-    }
-}
-
-// Example usage in the game loop
-// Assume gameLoop is your main game function
-async function gameLoop() {
-    let currentState = getCurrentState(); // Your function to get 143-element array
-    let action = await getAction(currentState);
-    
-    if (action !== null) {
-        // Take the action in the game
-        takeAction(action); // Your function to apply the action
-        
-        // After action, get reward, next state, and done flag
-        let reward = calculateReward(); // Your function
-        let nextState = getCurrentState(); // Updated state
-        let done = isGameOver(); // boolean
-        
-        // Send update for training
-        await sendUpdate(currentState, action, reward, nextState, done);
-        
-        // Continue loop if not done
-        if (!done) {
-            setTimeout(gameLoop, 100); // Example delay
-        }
-    }
-}
-
-// Start the game loop
-gameLoop();
-
-*/
